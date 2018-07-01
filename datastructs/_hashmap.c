@@ -59,13 +59,11 @@ static PyObject* Int2Int_repr(Int2Int_t *self) {
             self->hashmap.size);
 }
 
-static Py_ssize_t Int2Int_len(PyObject *obj) {
-    Int2Int_t *self = (Int2Int_t*) obj;
+static Py_ssize_t Int2Int_len(Int2Int_t *self) {
     return self->hashmap.current_size;
 }
 
-int Int2Int_contains(PyObject *obj, PyObject *key) {
-    Int2Int_t *self = (Int2Int_t*) obj;
+int Int2Int_contains(Int2Int_t *self, PyObject *key) {
     unsigned long long c_key;
 
     c_key = PyLong_AsUnsignedLongLong(key);
@@ -77,8 +75,7 @@ int Int2Int_contains(PyObject *obj, PyObject *key) {
     return int2int_has(&self->hashmap, c_key);
 }
 
-static int Int2Int_setitem(PyObject *obj, PyObject *key, PyObject *value) {
-    Int2Int_t *self = (Int2Int_t*) obj;
+static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
     unsigned long long c_key;
     size_t c_value;
 
@@ -102,8 +99,7 @@ static int Int2Int_setitem(PyObject *obj, PyObject *key, PyObject *value) {
     return 0;
 }
 
-static PyObject* Int2Int_getitem(PyObject *obj, PyObject *key) {
-    Int2Int_t *self = (Int2Int_t*) obj;
+static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
     unsigned long long c_key;
     size_t c_value;
 
