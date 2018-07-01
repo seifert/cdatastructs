@@ -58,17 +58,14 @@ C code:
             unsigned long long * ids, size_t ids_count,
             double * x, double * y, double * z) {
 
-        size_t idx;
-
     	for (size_t i=0; i<ids_count; ++i) {
-    		idx = int2int_get(id2idx, ids[i]);
+    		size_t idx = int2int_get(id2idx, ids[i]);
     		z[idx] = x[idx] + y[idx];
     	}
     }
 
-    static PyObject * my_c_extension_some_func(PyObject * id2index,
-            PyObject * allowed_ids, PyObject * a, PyObject * b,
-            PyObject * result) {
+    static PyObject * my_c_extension_compute_data(
+            PyObject * id2index, PyObject * args) {
 
         Int2IntHashTable_t *id2idx;
         unsigned long long *ids;
@@ -77,8 +74,8 @@ C code:
         double *y;
         double *z;
 
-        // There is only one Python overhead - acquire pointers to buffers
-        // which contain data and cast them to C types.
+        // There is only one Python overhead - parse args, acquire pointers
+        // to buffers which contain data and cast them to C types.
 
         compute_data(id2idx, ids, ids_count, x, y, z);
 
