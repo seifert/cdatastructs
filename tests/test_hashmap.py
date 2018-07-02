@@ -12,6 +12,18 @@ def int2int_map():
     return Int2Int(8)
 
 
+def test_new_fail_when_invalid_size_arg():
+    with pytest.raises(TypeError) as exc_info:
+        Int2Int('8')
+    assert "'str' object cannot be interpreted as an integer" in str(exc_info)
+
+
+def test_new_fail_when_invalid_default_arg():
+    with pytest.raises(TypeError) as exc_info:
+        Int2Int(8, default='8')
+    assert "'default' must be an integer" in str(exc_info)
+
+
 def test_int2int_len_when_empty(int2int_map):
     assert len(int2int_map) == 0
 
@@ -67,13 +79,13 @@ def test_int2int_repr_when_not_empty_and_default_arg():
 def test_int2int_setitem_fail_when_invalid_key(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map['1'] = 100
-    assert "'key' must be an integer" in str(exc_info.value)
+    assert "'key' must be an integer" in str(exc_info)
 
 
 def test_int2int_setitem_fail_when_invalid_value(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map[1] = '100'
-    assert "'value' must be an integer" in str(exc_info.value)
+    assert "'value' must be an integer" in str(exc_info)
 
 
 def test_int2int_setitem_fail_when_size_exceeded(int2int_map):
@@ -81,7 +93,7 @@ def test_int2int_setitem_fail_when_size_exceeded(int2int_map):
         int2int_map[i] = i + 100
     with pytest.raises(RuntimeError) as exc_info:
         int2int_map[9] = i + 100 + 1
-    assert 'Maximum size has been exceeded' in str(exc_info.value)
+    assert 'Maximum size has been exceeded' in str(exc_info)
 
 
 def test_int2int_setitem_getitem(int2int_map):
@@ -110,13 +122,22 @@ def test_int2int_getitem_key_does_not_exist_and_default_kwarg():
 def test_int2int_getitem_fail_when_invalid_key(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map['1']
-    assert "'key' must be an integer" in str(exc_info.value)
+    assert "'key' must be an integer" in str(exc_info)
 
 
 def test_int2int_getitem_fail_when_key_does_not_exist(int2int_map):
     with pytest.raises(KeyError) as exc_info:
         int2int_map[1]
-    assert "'1'" in str(exc_info.value)
+    assert "'1'" in str(exc_info)
+
+
+def test_int2int_getitem_fail_when_size_exceeded():
+    int2int_map = Int2Int(8, 0)
+    for i in range(8):
+        int2int_map[i] = i + 100
+    with pytest.raises(RuntimeError) as exc_info:
+        int2int_map[9]
+    assert 'Maximum size has been exceeded' in str(exc_info)
 
 
 def test_int2int_get(int2int_map):
@@ -139,14 +160,14 @@ def test_int2int_get_when_key_does_not_exist_and_default_kwarg(int2int_map):
 def test_int2int_get_fail_when_invalid_key(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get('1')
-    exc_msg = str(exc_info.value)
+    exc_msg = str(exc_info)
     assert 'argument 1 must be int, not str' in exc_msg
 
 
 def test_int2int_get_fail_when_invalid_default(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get(1, '1')
-    exc_msg = str(exc_info.value)
+    exc_msg = str(exc_info)
     assert "'default' must be an integer" in exc_msg
 
 
