@@ -32,8 +32,7 @@ def test_int2int_bool_when_not_empty(int2int_map):
 
 def test_int2int_repr_when_empty(int2int_map):
     m = re.match(
-        r'\<datastructs.hashmap.Int2Int: object at '
-        r'0x[0-9a-f]+, size 0 \(maxsize 8\)\>',
+        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0/8\>',
         repr(int2int_map))
     assert m is not None
 
@@ -41,8 +40,26 @@ def test_int2int_repr_when_empty(int2int_map):
 def test_int2int_repr_when_not_empty(int2int_map):
     int2int_map[1] = 100
     m = re.match(
-        r'\<datastructs.hashmap.Int2Int: object at '
-        r'0x[0-9a-f]+, size 1 \(maxsize 8\)\>',
+        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 1/8\>',
+        repr(int2int_map))
+    assert m is not None
+
+
+def test_int2int_repr_when_empty_and_default_arg():
+    int2int_map = Int2Int(8, default=100)
+    m = re.match(
+        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'used 0/8, default 100\>',
+        repr(int2int_map))
+    assert m is not None
+
+
+def test_int2int_repr_when_not_empty_and_default_arg():
+    int2int_map = Int2Int(8, default=100)
+    int2int_map[1] = 100
+    m = re.match(
+        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'used 1/8, default 100\>',
         repr(int2int_map))
     assert m is not None
 
@@ -76,6 +93,18 @@ def test_int2int_setitem_twice(int2int_map):
     int2int_map[1] = 100
     int2int_map[1] = 200
     assert int2int_map[1] == 200
+
+
+def test_int2int_getitem_key_does_not_exist_and_default_arg():
+    int2int_map = Int2Int(8, 100)
+    assert int2int_map[1] == 100
+    assert len(int2int_map) == 1
+
+
+def test_int2int_getitem_key_does_not_exist_and_default_kwarg():
+    int2int_map = Int2Int(8, default=100)
+    assert int2int_map[1] == 100
+    assert len(int2int_map) == 1
 
 
 def test_int2int_getitem_fail_when_invalid_key(int2int_map):
@@ -118,7 +147,7 @@ def test_int2int_get_fail_when_invalid_default(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get(1, '1')
     exc_msg = str(exc_info.value)
-    assert "'str' object cannot be interpreted as an integer" in exc_msg
+    assert "'default' must be an integer" in exc_msg
 
 
 def test_int2int_contains_when_key_exists(int2int_map):

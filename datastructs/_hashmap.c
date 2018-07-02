@@ -1,4 +1,6 @@
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <Python.h>
 
 #include "hashmap.h"
@@ -10,6 +12,7 @@
 typedef struct {
     PyObject_HEAD
     Int2IntHashTable_t hashmap;
+    PyObject *default_value;
 } Int2Int_t;
 
 static void Int2Int_dealloc(Int2Int_t *self) {
@@ -20,13 +23,21 @@ static void Int2Int_dealloc(Int2Int_t *self) {
 static PyObject* Int2Int_new(PyTypeObject *type,
         PyObject *args, PyObject *kwds) {
 
+    char *kwnames[] = {"size", "default", NULL};
     const Py_ssize_t size;
+    PyObject *default_value = NULL;
     Int2Int_t *self;
     size_t table_size;
     Int2IntItem_t *table;
 
     /* Parse arguments */
-    if (!PyArg_ParseTuple(args, "n", &size)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|O", kwnames,
+            &size, &default_value)) {
+        return NULL;
+    }
+    if ((default_value != NULL) && (!PyLong_Check(default_value))) {
+        PyErr_SetString(PyExc_TypeError,
+                "'default' must be an integer");
         return NULL;
     }
 
@@ -45,6 +56,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     }
 
     /* Initialize object attributes */
+    self->default_value = default_value;
     self->hashmap.size = size;
     self->hashmap.current_size = 0;
     self->hashmap.table_size = table_size;
@@ -54,9 +66,17 @@ static PyObject* Int2Int_new(PyTypeObject *type,
 }
 
 static PyObject* Int2Int_repr(Int2Int_t *self) {
-    return PyUnicode_FromFormat("<%s: object at %p, size %zd (maxsize %zd)>",
-            self->ob_base.ob_type->tp_name, self, self->hashmap.current_size,
-            self->hashmap.size);
+    if (self->default_value != NULL) {
+        size_t default_value = PyLong_AsSize_t(self->default_value);
+        return PyUnicode_FromFormat(
+                "<%s: object at %p, used %zd/%zd, default %zd>",
+                self->ob_base.ob_type->tp_name, self,
+                self->hashmap.current_size, self->hashmap.size,
+                default_value);
+    }
+    return PyUnicode_FromFormat("<%s: object at %p, used %zd/%zd>",
+            self->ob_base.ob_type->tp_name, self,
+            self->hashmap.current_size, self->hashmap.size);
 }
 
 static Py_ssize_t Int2Int_len(Int2Int_t *self) {
@@ -111,30 +131,46 @@ static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
 
     c_value = int2int_get(&self->hashmap, c_key);
     if (c_value == (size_t) -1) {
+        if (self->default_value != NULL) {
+            if (int2int_set(&self->hashmap, c_key, c_value) == -1) {
+                PyErr_SetString(PyExc_RuntimeError,
+                        "Maximum size has been exceeded");
+                return NULL;
+            }
+            Py_INCREF(self->default_value);
+            return self->default_value;
+        }
         return PyErr_Format(PyExc_KeyError, "%llu", c_key);
     }
 
     return PyLong_FromSize_t(c_value);
 }
 
-static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kw) {
-    static char *kwnames[] = {"key", "default", NULL};
+static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
+    char *kwnames[] = {"key", "default", NULL};
     const unsigned long long key;
-    Py_ssize_t default_value = -1;
+    PyObject * default_value = NULL;
     size_t value;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kw,
-            "K|n", kwnames, &key, &default_value)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "K|O", kwnames,
+            &key, &default_value)) {
         return NULL;
     }
 
     value = int2int_get(&self->hashmap, key);
     if (value == (unsigned long long) -1) {
-        if (default_value == -1) {
+        if (default_value == NULL) {
             Py_INCREF(Py_None);
             return Py_None;
+        } else {
+            if (!PyLong_Check(default_value)) {
+                PyErr_SetString(PyExc_TypeError,
+                        "'default' must be an integer");
+                return NULL;
+            }
+            Py_INCREF(default_value);
+            return default_value;
         }
-        return PyLong_FromSsize_t(default_value);
     }
 
     return PyLong_FromSize_t(value);
