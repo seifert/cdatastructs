@@ -2,13 +2,21 @@
 #ifndef HASHMAP_H_
 #define HASHMAP_H_
 
-#include <stdbool.h>
 #include <stddef.h>
+
+/*
+ * int2int
+ */
+
+typedef enum {
+    EMPTY,
+    USED
+} ItemStatus_e;
 
 typedef struct {
     unsigned long long key;
     size_t value;
-    bool is_used;
+    ItemStatus_e status;
 } Int2IntItem_t;
 
 typedef struct {

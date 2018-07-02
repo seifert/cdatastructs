@@ -1,5 +1,4 @@
 
-#include <stdbool.h>
 #include <stddef.h>
 
 #include "hashmap.h"
@@ -17,14 +16,14 @@ int int2int_set(Int2IntHashTable_t * const ctx,
     if (ctx->current_size == ctx->size) {
         return -1;
     }
-    while (ctx->table[idx].is_used) {
+    while (ctx->table[idx].status == USED) {
         if (ctx->table[idx].key == key) {
             ctx->table[idx].value = value;
             return 0;
         }
         idx = (idx + 1) % ctx->table_size;
     }
-    ctx->table[idx].is_used = true;
+    ctx->table[idx].status = USED;
     ctx->table[idx].key = key;
     ctx->table[idx].value = value;
     ctx->current_size += 1;
@@ -36,7 +35,7 @@ size_t int2int_get(const Int2IntHashTable_t * const ctx,
 
     size_t idx = int2int_hash(key, ctx->table_size);
 
-    while (ctx->table[idx].is_used) {
+    while (ctx->table[idx].status == USED) {
         if (ctx->table[idx].key == key) {
             return ctx->table[idx].value;
         }
@@ -50,7 +49,7 @@ int int2int_has(const Int2IntHashTable_t * const ctx,
 
     size_t idx = int2int_hash(key, ctx->table_size);
 
-    while (ctx->table[idx].is_used) {
+    while (ctx->table[idx].status == USED) {
         if (ctx->table[idx].key == key) {
             return 1;
         }
