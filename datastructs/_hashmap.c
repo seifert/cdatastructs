@@ -162,15 +162,13 @@ static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
         if (default_value == NULL) {
             Py_INCREF(Py_None);
             return Py_None;
-        } else {
-            if (!PyLong_Check(default_value)) {
-                PyErr_SetString(PyExc_TypeError,
-                        "'default' must be an integer");
-                return NULL;
-            }
-            Py_INCREF(default_value);
-            return default_value;
         }
+        if (!PyLong_Check(default_value)) {
+            PyErr_SetString(PyExc_TypeError, "'default' must be an integer");
+            return NULL;
+        }
+        Py_INCREF(default_value);
+        return default_value;
     }
 
     return PyLong_FromSize_t(value);
