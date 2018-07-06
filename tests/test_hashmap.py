@@ -202,3 +202,44 @@ def test_int2int_get_ptr(int2int_map):
     t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
     assert t.size == 8
     assert t.current_size == 1
+
+
+def test_int2int_iter_when_empty(int2int_map):
+    assert set(int2int_map) == set()
+
+
+def test_int2int_iter(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert set(int2int_map) == {1, 2, 3, 4, 5, 6}
+
+
+def test_int2int_keys_when_empty(int2int_map):
+    assert set(int2int_map.keys()) == set()
+
+
+def test_int2int_keys(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert set(int2int_map.keys()) == {1, 2, 3, 4, 5, 6}
+
+
+def test_int2int_values_when_empty(int2int_map):
+    assert set(int2int_map.values()) == set()
+
+
+def test_int2int_values(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert set(int2int_map.values()) == {101, 102, 103, 104, 105, 106}
+
+
+def test_int2int_items_when_empty(int2int_map):
+    assert set(int2int_map.items()) == set()
+
+
+def test_int2int_items(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert set(int2int_map.items()) == {
+        (1, 101), (2, 102), (3, 103), (4, 104), (5, 105), (6, 106)}

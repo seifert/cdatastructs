@@ -5,9 +5,38 @@
 
 #include "hashmap.h"
 
-/*
- * Int2Int class
- */
+/******************************************************************************
+ * Hashmap iterator - common                                                  *
+ ******************************************************************************/
+
+typedef enum {
+    KEYS,
+    VALUES,
+    ITEMS
+} HashmapIteratorType_e;
+
+typedef struct {
+    PyObject_HEAD
+    HashmapIteratorType_e iterator_type;
+    size_t current_position;
+    PyObject *obj;
+} HashmapIterator_t;
+
+static void HashmapIterator_dealloc(HashmapIterator_t *self) {
+    if (self->obj != NULL) {
+        Py_DECREF(self->obj);
+    }
+    Py_TYPE(self)->tp_free((PyObject*) self);
+}
+
+static PyObject* HashmapIterator_iter(PyObject *self) {
+    Py_INCREF(self);
+    return self;
+}
+
+/******************************************************************************
+ * Int2Int class                                                              *
+ ******************************************************************************/
 
 typedef struct {
     PyObject_HEAD
@@ -15,10 +44,50 @@ typedef struct {
     PyObject *default_value;
 } Int2Int_t;
 
-static void Int2Int_dealloc(Int2Int_t *self) {
-    PyMem_RawFree(self->hashmap.table);
-    Py_TYPE(self)->tp_free((PyObject*) self);
+/* Int2Int iterator */
+
+static PyObject* Int2IntIterator_next(HashmapIterator_t *self) {
+    Int2Int_t *obj = (Int2Int_t*) self->obj;
+    PyObject *res = NULL;
+
+    while (self->current_position < obj->hashmap.table_size) {
+        Int2IntItem_t item = obj->hashmap.table[self->current_position];
+        if (item.status == USED) {
+            switch (self->iterator_type) {
+            case KEYS:
+                res = PyLong_FromUnsignedLongLong(item.key);
+                break;
+            case VALUES:
+                res = PyLong_FromSize_t(item.value);
+                break;
+            case ITEMS:
+                res = PyTuple_Pack(2, PyLong_FromUnsignedLongLong(item.key),
+                        PyLong_FromSize_t(item.value));
+                break;
+            }
+        }
+        ++self->current_position;
+        if (res != NULL) {
+            break;
+        }
+    }
+
+    return res;
 }
+
+static PyTypeObject Int2IntIterator_type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "datastructs.hashmap.Int2IntIterator",
+    .tp_doc = "Iterator over hashmap",
+    .tp_basicsize = sizeof(HashmapIterator_t),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_iter = (getiterfunc) HashmapIterator_iter,
+    .tp_iternext = (iternextfunc) Int2IntIterator_next,
+    .tp_dealloc = (destructor) HashmapIterator_dealloc
+};
+
+/* Int2Int */
 
 static PyObject* Int2Int_new(PyTypeObject *type,
         PyObject *args, PyObject *kwds) {
@@ -63,6 +132,11 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     self->hashmap.table = table;
 
     return (PyObject*) self;
+}
+
+static void Int2Int_dealloc(Int2Int_t *self) {
+    PyMem_RawFree(self->hashmap.table);
+    Py_TYPE(self)->tp_free((PyObject*) self);
 }
 
 static PyObject* Int2Int_repr(Int2Int_t *self) {
@@ -150,6 +224,18 @@ static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
     return PyLong_FromSize_t(c_value);
 }
 
+static PyObject* Int2Int_iter(Int2Int_t *self) {
+    HashmapIterator_t *iterator = PyObject_New(
+            HashmapIterator_t, &Int2IntIterator_type);
+    if (iterator != NULL) {
+        Py_INCREF(self);
+        iterator->iterator_type = KEYS;
+        iterator->current_position = 0;
+        iterator->obj = (PyObject*) self;
+    }
+    return (PyObject*) iterator;
+}
+
 static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
     char *kwnames[] = {"key", "default", NULL};
     const unsigned long long key;
@@ -176,6 +262,42 @@ static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
     }
 
     return PyLong_FromSize_t(value);
+}
+
+static PyObject* Int2Int_keys(Int2Int_t *self) {
+    HashmapIterator_t *iterator = PyObject_New(
+            HashmapIterator_t, &Int2IntIterator_type);
+    if (iterator != NULL) {
+        Py_INCREF(self);
+        iterator->iterator_type = KEYS;
+        iterator->current_position = 0;
+        iterator->obj = (PyObject*) self;
+    }
+    return (PyObject*) iterator;
+}
+
+static PyObject* Int2Int_values(Int2Int_t *self) {
+    HashmapIterator_t *iterator = PyObject_New(
+            HashmapIterator_t, &Int2IntIterator_type);
+    if (iterator != NULL) {
+        Py_INCREF(self);
+        iterator->iterator_type = VALUES;
+        iterator->current_position = 0;
+        iterator->obj = (PyObject*) self;
+    }
+    return (PyObject*) iterator;
+}
+
+static PyObject* Int2Int_items(Int2Int_t *self) {
+    HashmapIterator_t *iterator = PyObject_New(
+            HashmapIterator_t, &Int2IntIterator_type);
+    if (iterator != NULL) {
+        Py_INCREF(self);
+        iterator->iterator_type = ITEMS;
+        iterator->current_position = 0;
+        iterator->obj = (PyObject*) self;
+    }
+    return (PyObject*) iterator;
 }
 
 static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
@@ -208,6 +330,25 @@ static PyMethodDef Int2Int_methods[] = {
             "\n"
             "Return value for key. If key does not exist, return default\n"
             "value, otherwise return None."},
+    {"keys", (PyCFunction) Int2Int_keys, METH_VARARGS,
+            "keys(self, /)\n"
+            "--\n"
+            "\n"
+            "Return an iterator over the hashmaps’s keys. Don't change\n"
+            "hashmap during iteration, behavior is undefined!"},
+    {"values", (PyCFunction) Int2Int_values, METH_VARARGS,
+            "values(self, /)\n"
+            "--\n"
+            "\n"
+            "Return an iterator over the hashmaps’s values. Don't change\n"
+            "hashmap during iteration, behavior is undefined!"},
+    {"items", (PyCFunction) Int2Int_items, METH_VARARGS,
+            "items(self, /)\n"
+            "--\n"
+            "\n"
+            "Return an iterator over the hashmaps’s (key, value) tuple\n"
+            "pairs. Don't change hashmap during iteration, behavior is\n"
+            "undefined!"},
     {"get_ptr", (PyCFunction) Int2Int_get_ptr, METH_NOARGS,
             "get_ptr(self, /)\n"
             "--\n"
@@ -247,7 +388,7 @@ static PyTypeObject Int2Int_type = {
     0,                                                  /* tp_clear */
     0,                                                  /* tp_richcompare */
     0,                                                  /* tp_weaklistoffset */
-    0,                                                  /* tp_iter */
+    (getiterfunc) Int2Int_iter,                         /* tp_iter */
     0,                                                  /* tp_iternext */
     Int2Int_methods,                                    /* tp_methods */
     0,                                                  /* tp_members */
@@ -262,9 +403,9 @@ static PyTypeObject Int2Int_type = {
     (newfunc) Int2Int_new,                              /* tp_new */
 };
 
-/*
- * hashmap module
- */
+/******************************************************************************
+ * hashmap module                                                             *
+ ******************************************************************************/
 
 static PyModuleDef hashmapmodule = {
     PyModuleDef_HEAD_INIT,                              /* m_base */
@@ -283,7 +424,8 @@ static PyModuleDef hashmapmodule = {
 PyMODINIT_FUNC PyInit_hashmap(void) {
     PyObject *module;
 
-    if (PyType_Ready(&Int2Int_type) < 0) {
+    if ((PyType_Ready(&Int2IntIterator_type) < 0) ||
+            (PyType_Ready(&Int2Int_type) < 0)) {
         return NULL;
     }
 
