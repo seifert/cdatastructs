@@ -107,6 +107,13 @@ def test_int2int_setitem_twice(int2int_map):
     assert int2int_map[1] == 200
 
 
+def test_int2int_setitem_delitem(int2int_map):
+    int2int_map[1] = 100
+    with pytest.raises(NotImplementedError) as exc_info:
+        del int2int_map[1]
+    assert "can't delete item" in str(exc_info)
+
+
 def test_int2int_getitem_key_does_not_exist_and_default_arg():
     int2int_map = Int2Int(8, 100)
     assert int2int_map[1] == 100

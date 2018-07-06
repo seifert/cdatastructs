@@ -105,6 +105,10 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
         return -1;
     }
 
+    if (value == NULL) {
+        PyErr_SetString(PyExc_NotImplementedError, "can't delete item");
+        return -1;
+    }
     c_value = PyLong_AsSize_t(value);
     if (c_value == (size_t) -1) {
         PyErr_SetString(PyExc_TypeError, "'value' must be an integer");
