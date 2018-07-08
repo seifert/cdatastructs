@@ -44,6 +44,8 @@ typedef struct {
     PyObject *default_value;
 } Int2Int_t;
 
+static PyTypeObject Int2Int_type;
+
 /* Int2Int iterator */
 
 static PyObject* Int2IntIterator_next(HashmapIterator_t *self) {
@@ -155,6 +157,104 @@ static PyObject* Int2Int_repr(Int2Int_t *self) {
 
 static Py_ssize_t Int2Int_len(Int2Int_t *self) {
     return self->hashmap.current_size;
+}
+
+static PyObject* Int2Int_richcompare(Int2Int_t *self, PyObject *other, int op) {
+    PyObject *res = Py_False;
+
+    /* Check supported operators */
+    switch (op) {
+    case Py_LT:
+        PyErr_SetString(PyExc_TypeError, "'<' is not supported");
+        res = NULL;
+    case Py_LE:
+        PyErr_SetString(PyExc_TypeError, "'<=' is not supported");
+        res = NULL;
+    case Py_GT:
+        PyErr_SetString(PyExc_TypeError, "'>' is not supported");
+        res = NULL;
+    case Py_GE:
+        PyErr_SetString(PyExc_TypeError, "'>=' is not supported");
+        res = NULL;
+    case Py_EQ:
+    case Py_NE:
+        break;
+    }
+
+    if (res != NULL) {
+        if (PyDict_Check(other) || (Py_TYPE(other) == &Int2Int_type)) {
+            Py_ssize_t other_length = PyMapping_Size(other);
+
+            if (other_length == (Py_ssize_t) self->hashmap.current_size) {
+                res = Py_True;
+                for (size_t i = 0; i < self->hashmap.table_size; ++i) {
+                    Int2IntItem_t item = self->hashmap.table[i];
+
+                    if (item.status == USED) {
+                        PyObject *key = NULL;
+                        PyObject *value = NULL;
+                        size_t c_value;
+
+                        key = PyLong_FromLongLong(item.key);
+                        if (key != NULL) {
+                            value = PyObject_GetItem(other, key);
+                            if (value != NULL) {
+                                c_value = PyLong_AsSize_t(value);
+                                if (c_value != (size_t) -1) {
+                                    /* Values for key are different */
+                                    if (item.value != c_value) {
+                                        res = Py_False;
+                                    }
+                                }
+                                else {
+                                    /* PyLong to size_t conversion error */
+                                    res = NULL;
+                                }
+                            }
+                            else {
+                                /* other[key] error, if KeyError, objects are
+                                   different, otherwise return with error. */
+                                if (PyErr_GivenExceptionMatches(
+                                        PyErr_Occurred(), PyExc_KeyError)) {
+                                    PyErr_Clear();
+                                    res = Py_False;
+                                }
+                                else {
+                                    res = NULL;
+                                }
+                            }
+                        }
+                        else {
+                            /* long long to PyLong conversion error */
+                            res = NULL;
+                        }
+
+                        Py_XDECREF(key);
+                        Py_XDECREF(value);
+
+                        if (res != Py_True) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            /* other object is not Int2Int or dict (or subtype) */
+            PyErr_SetString(PyExc_TypeError,
+                    "'other' is not either an Int2Int or a dict");
+            res = NULL;
+        }
+    }
+
+    if (res != NULL) {
+        if (op == Py_NE) {
+            res = (res == Py_True) ? Py_False : Py_True;
+        }
+        Py_INCREF(res);
+    }
+
+    return res;
 }
 
 int Int2Int_contains(Int2Int_t *self, PyObject *key) {
@@ -386,7 +486,7 @@ static PyTypeObject Int2Int_type = {
     "compute in C or Cython.\n",
     0,                                                  /* tp_traverse */
     0,                                                  /* tp_clear */
-    0,                                                  /* tp_richcompare */
+    (richcmpfunc) Int2Int_richcompare,                  /* tp_richcompare */
     0,                                                  /* tp_weaklistoffset */
     (getiterfunc) Int2Int_iter,                         /* tp_iter */
     0,                                                  /* tp_iternext */

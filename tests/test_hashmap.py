@@ -1,5 +1,6 @@
 
 import ctypes
+import operator
 import re
 
 import pytest
@@ -243,3 +244,67 @@ def test_int2int_items(int2int_map):
         int2int_map[i] = 100 + i
     assert set(int2int_map.items()) == {
         (1, 101), (2, 102), (3, 103), (4, 104), (5, 105), (6, 106)}
+
+
+def test_int2int_equal_when_empty():
+    a = Int2Int(8)
+    b = Int2Int(8)
+    assert a == b
+
+
+def test_int2int_equal_when_same_keys_and_values():
+    a = Int2Int(8)
+    b = Int2Int(8)
+    for i in range(1, 7, 1):
+        a[i] = 100 + i
+        b[i] = 100 + i
+    assert a == b
+
+
+def test_int2int_equal_with_dict_when_same_keys_and_values():
+    a = Int2Int(8)
+    b = {}
+    for i in range(1, 7, 1):
+        a[i] = 100 + i
+        b[i] = 100 + i
+    assert a == b
+
+
+def test_int2int_not_equal_when_same_size_same_keys_but_different_values():
+    a = Int2Int(8)
+    b = Int2Int(8)
+    for i in range(1, 7, 1):
+        a[i] = 100 + i
+        b[i] = 100 + i
+    b[6] = 200
+    assert a != b
+
+
+def test_int2int_not_equal_when_same_size_same_values_but_different_keys():
+    a = Int2Int(8)
+    b = Int2Int(8)
+    for i in range(1, 7, 1):
+        a[i] = 100 + i
+        b[i] = 100 + i
+    a[7] = 200
+    b[8] = 300
+    assert a != b
+
+
+def test_int2int_not_equal_when_different_size():
+    a = Int2Int(8)
+    b = Int2Int(8)
+    for i in range(1, 7, 1):
+        a[i] = 100 + i
+        b[i] = 100 + i
+    b[7] = 107
+    assert a != b
+
+
+@pytest.mark.parametrize(
+    'other', [1, 'a', [1, 2]])
+def test_int2int_eq_fail_when_invalid_other_object(int2int_map, other):
+    with pytest.raises(TypeError) as exc_info:
+        assert int2int_map == other
+    assert "'other' is not either an Int2Int or a dict" in str(exc_info)
+
