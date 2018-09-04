@@ -118,6 +118,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
                         "'default' must be an integer");
                 return NULL;
             }
+            Py_INCREF(default_value);
         }
     }
 
@@ -146,18 +147,20 @@ static PyObject* Int2Int_new(PyTypeObject *type,
 }
 
 static void Int2Int_dealloc(Int2Int_t *self) {
+    if (self->default_value != NULL) {
+        Py_DECREF(self->default_value);
+    }
     PyMem_RawFree(self->hashmap.table);
     Py_TYPE(self)->tp_free((PyObject*) self);
 }
 
 static PyObject* Int2Int_repr(Int2Int_t *self) {
     if (self->default_value != NULL) {
-        size_t default_value = PyLong_AsSize_t(self->default_value);
         return PyUnicode_FromFormat(
-                "<%s: object at %p, used %zd/%zd, default %zd>",
+                "<%s: object at %p, used %zd/%zd, default %A>",
                 self->ob_base.ob_type->tp_name, self,
                 self->hashmap.current_size, self->hashmap.size,
-                default_value);
+                self->default_value);
     }
     return PyUnicode_FromFormat("<%s: object at %p, used %zd/%zd>",
             self->ob_base.ob_type->tp_name, self,
@@ -209,15 +212,16 @@ static PyObject* Int2Int_richcompare(Int2Int_t *self, PyObject *other, int op) {
                             value = PyObject_GetItem(other, key);
                             if (value != NULL) {
                                 c_value = PyLong_AsSize_t(value);
-                                if (c_value != (size_t) -1) {
+                                if ((c_value != (size_t) -1) &&
+                                        PyErr_Occurred() != NULL) {
+                                    /* PyLong to size_t conversion error */
+                                    res = NULL;
+                                }
+                                else {
                                     /* Values for key are different */
                                     if (item.value != c_value) {
                                         res = Py_False;
                                     }
-                                }
-                                else {
-                                    /* PyLong to size_t conversion error */
-                                    res = NULL;
                                 }
                             }
                             else {
@@ -316,9 +320,12 @@ static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
         return NULL;
     }
 
-    c_value = int2int_get(&self->hashmap, c_key);
-    if (c_value == (size_t) -1) {
+    if (int2int_get(&self->hashmap, c_key, &c_value) == -1) {
         if (self->default_value != NULL) {
+            c_value = PyLong_AsSize_t(self->default_value);
+            if ((c_value == (size_t) -1) && (PyErr_Occurred() != NULL)) {
+                return NULL;
+            }
             if (int2int_set(&self->hashmap, c_key, c_value) == -1) {
                 PyErr_SetString(PyExc_RuntimeError,
                         "Maximum size has been exceeded");
@@ -445,8 +452,7 @@ static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
         return NULL;
     }
 
-    value = int2int_get(&self->hashmap, key);
-    if (value == (unsigned long long) -1) {
+    if (int2int_get(&self->hashmap, key, &value) == -1) {
         if (default_value == NULL) {
             Py_INCREF(Py_None);
             return Py_None;

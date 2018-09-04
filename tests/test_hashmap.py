@@ -14,13 +14,13 @@ def int2int_map():
     return Int2Int(8)
 
 
-def test_new_fail_when_invalid_size_arg():
+def test_int2int_new_fail_when_invalid_size_arg():
     with pytest.raises(TypeError) as exc_info:
         Int2Int('8')
     assert "'str' object cannot be interpreted as an integer" in str(exc_info)
 
 
-def test_new_fail_when_invalid_default_arg():
+def test_int2int_new_fail_when_invalid_default_arg():
     with pytest.raises(TypeError) as exc_info:
         Int2Int(8, default='8')
     assert "'default' must be an integer" in str(exc_info)
@@ -100,12 +100,14 @@ def test_int2int_setitem_fail_when_size_exceeded(int2int_map):
 
 def test_int2int_setitem_getitem(int2int_map):
     int2int_map[1] = 100
+    assert isinstance(int2int_map[1], int)
     assert int2int_map[1] == 100
 
 
 def test_int2int_setitem_twice(int2int_map):
     int2int_map[1] = 100
     int2int_map[1] = 200
+    assert isinstance(int2int_map[1], int)
     assert int2int_map[1] == 200
 
 
@@ -118,12 +120,14 @@ def test_int2int_setitem_delitem(int2int_map):
 
 def test_int2int_getitem_key_does_not_exist_and_default_arg():
     int2int_map = Int2Int(8, 100)
+    assert isinstance(int2int_map[1], int)
     assert int2int_map[1] == 100
     assert len(int2int_map) == 1
 
 
 def test_int2int_getitem_key_does_not_exist_and_default_kwarg():
     int2int_map = Int2Int(8, default=100)
+    assert isinstance(int2int_map[1], int)
     assert int2int_map[1] == 100
     assert len(int2int_map) == 1
 
@@ -158,6 +162,7 @@ def test_int2int_getitem_fail_when_size_exceeded():
 
 def test_int2int_get(int2int_map):
     int2int_map[1] = 100
+    assert isinstance(int2int_map.get(1), int)
     assert int2int_map.get(1) == 100
 
 
@@ -166,11 +171,15 @@ def test_int2int_get_when_key_does_not_exist(int2int_map):
 
 
 def test_int2int_get_when_key_does_not_exist_and_default_arg(int2int_map):
-    assert int2int_map.get(1, 100) == 100
+    value = int2int_map.get(1, 100)
+    assert isinstance(value, int)
+    assert value == 100.0
 
 
 def test_int2int_get_when_key_does_not_exist_and_default_kwarg(int2int_map):
-    assert int2int_map.get(1, default=100) == 100
+    value = int2int_map.get(1, default=100)
+    assert isinstance(value, int)
+    assert value == 100.0
 
 
 def test_int2int_get_fail_when_invalid_key(int2int_map):
@@ -220,6 +229,7 @@ def test_int2int_iter_when_empty(int2int_map):
 def test_int2int_iter(int2int_map):
     for i in range(1, 7, 1):
         int2int_map[i] = 100 + i
+    assert all(isinstance(k, int) for k in int2int_map.keys())
     assert set(int2int_map) == {1, 2, 3, 4, 5, 6}
 
 
@@ -230,6 +240,7 @@ def test_int2int_keys_when_empty(int2int_map):
 def test_int2int_keys(int2int_map):
     for i in range(1, 7, 1):
         int2int_map[i] = 100 + i
+    assert all(isinstance(k, int) for k in int2int_map.keys())
     assert set(int2int_map.keys()) == {1, 2, 3, 4, 5, 6}
 
 
@@ -240,6 +251,7 @@ def test_int2int_values_when_empty(int2int_map):
 def test_int2int_values(int2int_map):
     for i in range(1, 7, 1):
         int2int_map[i] = 100 + i
+    assert all(isinstance(v, int) for v in int2int_map.values())
     assert set(int2int_map.values()) == {101, 102, 103, 104, 105, 106}
 
 
@@ -250,6 +262,8 @@ def test_int2int_items_when_empty(int2int_map):
 def test_int2int_items(int2int_map):
     for i in range(1, 7, 1):
         int2int_map[i] = 100 + i
+    assert all(isinstance(k, int) for k, unused_v in int2int_map.items())
+    assert all(isinstance(v, int) for unused_k, v in int2int_map.items())
     assert set(int2int_map.items()) == {
         (1, 101), (2, 102), (3, 103), (4, 104), (5, 105), (6, 106)}
 
@@ -394,5 +408,7 @@ def test_int2int_pickle_loads(int2int_map):
     )
 
     assert new == int2int_map
+    assert all(isinstance(k, int) for k in new.keys())
     assert set(new.keys()) == {1, 2, 3, 4, 5, 6}
+    assert all(isinstance(v, int) for v in new.values())
     assert set(new.values()) == {101, 102, 103, 104, 105, 106}

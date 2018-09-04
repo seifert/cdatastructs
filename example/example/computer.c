@@ -8,6 +8,7 @@ static PyObject* sum(PyObject *self, PyObject *args) {
     Py_buffer a;
     Py_buffer b;
     Py_buffer res;
+    size_t idx;
 
     if (!PyArg_ParseTuple(args, "y*Ky*y*w*", &ids, &m_addr, &a, &b, &res)) {
         return NULL;
@@ -22,7 +23,10 @@ static PyObject* sum(PyObject *self, PyObject *args) {
 
     /* Compute - only pure C types, no Python overhead */
     for (Py_ssize_t i=0; i<c_ids_size; ++i) {
-        size_t idx = int2int_get(m, c_ids[i]);
+        if (int2int_get(m, c_ids[i], &idx) == -1) {
+            PyErr_Format(PyExc_KeyError, "%llu", c_ids[i]);
+            break;
+        }
         c_res[idx] = c_a[idx] + c_b[idx];
     }
     /* Compute - end */
@@ -32,6 +36,9 @@ static PyObject* sum(PyObject *self, PyObject *args) {
     PyBuffer_Release(&a);
     PyBuffer_Release(&ids);
 
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
     Py_RETURN_NONE;
 }
 

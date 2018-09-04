@@ -76,6 +76,7 @@ C code:
 
         // There is only one Python overhead - parse args, acquire pointers
         // to buffers which contain data and cast them to C types.
+        ...
 
         compute_data(id2idx, ids, ids_count, x, y, z);
 
