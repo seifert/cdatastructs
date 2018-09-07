@@ -188,7 +188,7 @@ def test_int2int_get_fail_when_invalid_key(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get('1')
     exc_msg = str(exc_info)
-    assert 'argument 1 must be int, not str' in exc_msg
+    assert 'argument 1 must be int' in exc_msg
 
 
 def test_int2int_get_fail_when_invalid_default(int2int_map):
@@ -596,7 +596,7 @@ def test_int2float_get_fail_when_invalid_key(int2float_map):
     with pytest.raises(TypeError) as exc_info:
         int2float_map.get('1')
     exc_msg = str(exc_info)
-    assert 'argument 1 must be int, not str' in exc_msg
+    assert 'argument 1 must be int' in exc_msg
 
 
 def test_int2float_get_fail_when_invalid_default(int2float_map):

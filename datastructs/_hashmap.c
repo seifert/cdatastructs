@@ -101,6 +101,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     PyObject *default_value = NULL;
     Int2Int_t *self;
     size_t table_size;
+    size_t table_mem_size;
     Int2IntItem_t *table;
 
     /* Parse arguments */
@@ -130,11 +131,13 @@ static PyObject* Int2Int_new(PyTypeObject *type,
 
     /* Allocate hashtable memory */
     table_size = size * 2;
-    table = (Int2IntItem_t*) PyMem_RawCalloc(table_size, sizeof(Int2IntItem_t));
+    table_mem_size = table_size * sizeof(Int2IntItem_t);
+    table = (Int2IntItem_t*) PyMem_RawMalloc(table_mem_size);
     if (!table) {
         Py_TYPE(self)->tp_free((PyObject*) self);
         return PyErr_NoMemory();
     }
+    memset(table, 0, table_mem_size);
 
     /* Initialize object attributes */
     self->default_value = default_value;
@@ -682,6 +685,7 @@ static PyObject* Int2Float_new(PyTypeObject *type,
     PyObject *default_value = NULL;
     Int2Float_t *self;
     size_t table_size;
+    size_t table_mem_size;
     Int2FloatItem_t *table;
 
     /* Parse arguments */
@@ -723,12 +727,13 @@ static PyObject* Int2Float_new(PyTypeObject *type,
 
     /* Allocate hashtable memory */
     table_size = size * 2;
-    table = (Int2FloatItem_t*) PyMem_RawCalloc(table_size,
-            sizeof(Int2FloatItem_t));
+    table_mem_size = table_size * sizeof(Int2FloatItem_t);
+    table = (Int2FloatItem_t*) PyMem_RawMalloc(table_mem_size);
     if (!table) {
         Py_TYPE(self)->tp_free((PyObject*) self);
         return PyErr_NoMemory();
     }
+    memset(table, 0, table_mem_size);
 
     /* Initialize object attributes */
     self->default_value = default_value;
