@@ -37,16 +37,27 @@ int int2int_set(Int2IntHashTable_t * const ctx,
 int int2int_get(const Int2IntHashTable_t * const ctx,
         const unsigned long long key, size_t * const value) {
 
+    size_t * p_value = int2int_get_ptr(ctx, key);
+
+    if (p_value != NULL) {
+        *value = *p_value;
+        return 0;
+    }
+    return -1;
+}
+
+size_t * int2int_get_ptr(const Int2IntHashTable_t * const ctx,
+        const unsigned long long key) {
+
     size_t idx = int2int_hash(key, ctx->table_size);
 
     while (ctx->table[idx].status == USED) {
         if (ctx->table[idx].key == key) {
-            *value = ctx->table[idx].value;
-            return 0;
+            return &(ctx->table[idx].value);
         }
         idx = (idx + 1) % ctx->table_size;
     }
-    return -1;
+    return NULL;
 }
 
 int int2int_has(const Int2IntHashTable_t * const ctx,
@@ -97,16 +108,27 @@ int int2float_set(Int2FloatHashTable_t * const ctx,
 int int2float_get(const Int2FloatHashTable_t * const ctx,
         const unsigned long long key, double * const value) {
 
+    double * p_value = int2float_get_ptr(ctx, key);
+
+    if (p_value != NULL) {
+        *value = *p_value;
+        return 0;
+    }
+    return -1;
+}
+
+double * int2float_get_ptr(const Int2FloatHashTable_t * const ctx,
+        const unsigned long long key) {
+
     size_t idx = int2float_hash(key, ctx->table_size);
 
     while (ctx->table[idx].status == USED) {
         if (ctx->table[idx].key == key) {
-            *value = ctx->table[idx].value;
-            return 0;
+            return &(ctx->table[idx].value);
         }
         idx = (idx + 1) % ctx->table_size;
     }
-    return -1;
+    return NULL;
 }
 
 int int2float_has(const Int2FloatHashTable_t * const ctx,

@@ -32,6 +32,9 @@ int int2int_set(Int2IntHashTable_t * const ctx,
 int int2int_get(const Int2IntHashTable_t * const ctx,
         const unsigned long long key, size_t * const value);
 
+size_t * int2int_get_ptr(const Int2IntHashTable_t * const ctx,
+        const unsigned long long key);
+
 int int2int_has(const Int2IntHashTable_t * const ctx,
         const unsigned long long key);
 
@@ -57,6 +60,9 @@ int int2float_set(Int2FloatHashTable_t * const ctx,
 
 int int2float_get(const Int2FloatHashTable_t * const ctx,
         const unsigned long long key, double * const value);
+
+double * int2float_get_ptr(const Int2FloatHashTable_t * const ctx,
+        const unsigned long long key);
 
 int int2float_has(const Int2FloatHashTable_t * const ctx,
         const unsigned long long key);
