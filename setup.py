@@ -47,8 +47,9 @@ setup(
     },
     ext_modules=[
         Extension(
-            'datastructs.hashmap',
-            ['datastructs/_hashmap.c', 'datastructs/hashmap.c'],
+            name='datastructs.hashmap',
+            sources=['datastructs/_hashmap.c', 'datastructs/hashmap.c'],
+            extra_compile_args=['--std=c99'],
         ),
     ],
 )
