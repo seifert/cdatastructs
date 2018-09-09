@@ -1,1 +1,1 @@
-include datastructs/*.c datastructs/*.h
+include datastructs/*.c datastructs/*.h datastructs/*.pxd
