@@ -1,7 +1,6 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <string.h>
 
 #include <Python.h>
 
@@ -130,7 +129,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     }
 
     /* Allocate hashtable memory */
-    table_size = size * 2;
+    table_size = (size * 1.2) + 1;
     table_mem_size = table_size * sizeof(Int2IntItem_t);
     table = (Int2IntItem_t*) PyMem_RawMalloc(table_mem_size);
     if (!table) {
@@ -726,7 +725,7 @@ static PyObject* Int2Float_new(PyTypeObject *type,
     }
 
     /* Allocate hashtable memory */
-    table_size = size * 2;
+    table_size = (size * 1.2) + 1;;
     table_mem_size = table_size * sizeof(Int2FloatItem_t);
     table = (Int2FloatItem_t*) PyMem_RawMalloc(table_mem_size);
     if (!table) {
