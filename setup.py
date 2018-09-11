@@ -36,8 +36,11 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     packages=find_packages(exclude=['tests*']),
+    include_package_data=True,
+    zip_safe=False,
     tests_require=[
         'pytest>=3',
     ],
