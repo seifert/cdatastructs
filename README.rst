@@ -58,10 +58,10 @@ C code:
             unsigned long long * ids, size_t ids_count,
             double * x, double * y, double * z) {
 
-    	for (size_t i=0; i<ids_count; ++i) {
-    		size_t idx = int2int_get(id2idx, ids[i]);
-    		z[idx] = x[idx] + y[idx];
-    	}
+        for (size_t i=0; i<ids_count; ++i) {
+            size_t idx = int2int_get(id2idx, ids[i]);
+            z[idx] = x[idx] + y[idx];
+        }
     }
 
     static PyObject * my_c_extension_compute_data(
@@ -82,3 +82,8 @@ C code:
 
         Py_RETURN_NONE;
     }
+
+License
+-------
+
+3-clause BSD
