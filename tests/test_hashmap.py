@@ -80,16 +80,40 @@ def test_int2int_repr_when_not_empty_and_default_arg():
     assert m is not None
 
 
-def test_int2int_setitem_fail_when_invalid_key(int2int_map):
+def test_int2int_setitem_fail_when_invalid_key_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map['1'] = 100
     assert "'key' must be an integer" in str(exc_info)
 
 
-def test_int2int_setitem_fail_when_invalid_value(int2int_map):
+def test_int2int_setitem_fail_when_negative_key(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map[-1] = 100
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2int_setitem_fail_when_key_is_too_big(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map[2 ** 64] = 100
+    assert "int too big to convert" in str(exc_info)
+
+
+def test_int2int_setitem_fail_when_invalid_value_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map[1] = '100'
     assert "'value' must be an integer" in str(exc_info)
+
+
+def test_int2int_setitem_fail_when_negative_value(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map[1] = -1
+    assert "can't convert negative value to size_t" in str(exc_info)
+
+
+def test_int2int_setitem_fail_when_value_is_too_big(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map[1] = 2 ** 64
+    assert "Python int too large to convert to C size_t" in str(exc_info)
 
 
 def test_int2int_setitem_fail_when_size_exceeded(int2int_map):
@@ -100,10 +124,11 @@ def test_int2int_setitem_fail_when_size_exceeded(int2int_map):
     assert 'Maximum size has been exceeded' in str(exc_info)
 
 
-def test_int2int_setitem_getitem(int2int_map):
-    int2int_map[1] = 100
-    assert isinstance(int2int_map[1], int)
-    assert int2int_map[1] == 100
+@pytest.mark.parametrize('key', [0, (2 ** 64) - 1])
+def test_int2int_setitem_getitem(int2int_map, key):
+    int2int_map[key] = 100
+    assert isinstance(int2int_map[key], int)
+    assert int2int_map[key] == 100
 
 
 def test_int2int_setitem_twice(int2int_map):
@@ -141,10 +166,22 @@ def test_int2int_getitem_key_does_not_exist_and_default_arg_is_none():
     assert "'1'" in str(exc_info)
 
 
-def test_int2int_getitem_fail_when_invalid_key(int2int_map):
+def test_int2int_getitem_fail_when_invalid_key_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map['1']
     assert "'key' must be an integer" in str(exc_info)
+
+
+def test_int2int_getitem_fail_when_negative_key(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map[-1]
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2int_getitem_fail_when_key_is_too_big(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map[2 ** 64]
+    assert "int too big to convert" in str(exc_info)
 
 
 def test_int2int_getitem_fail_when_key_does_not_exist(int2int_map):
@@ -184,18 +221,42 @@ def test_int2int_get_when_key_does_not_exist_and_default_kwarg(int2int_map):
     assert value == 100.0
 
 
-def test_int2int_get_fail_when_invalid_key(int2int_map):
+def test_int2int_get_fail_when_invalid_key_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get('1')
     exc_msg = str(exc_info)
-    assert 'argument 1 must be int' in exc_msg
+    assert "'key' must be an integer" in exc_msg
 
 
-def test_int2int_get_fail_when_invalid_default(int2int_map):
+def test_int2int_get_fail_when_negative_key(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map.get(-1)
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2int_get_fail_when_key_is_too_big(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map.get(2 ** 64)
+    assert "int too big to convert" in str(exc_info)
+
+
+def test_int2int_get_fail_when_invalid_default_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get(1, '1')
     exc_msg = str(exc_info)
     assert "'default' must be an integer" in exc_msg
+
+
+def test_int2int_get_fail_when_negative_default(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map.get(1, -1)
+    assert "can't convert negative value to size_t" in str(exc_info)
+
+
+def test_int2int_get_fail_when_default_is_too_big(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2int_map.get(1, 2 ** 64)
+    assert "Python int too large to convert to C size_t" in str(exc_info)
 
 
 def test_int2int_contains_when_key_exists(int2int_map):
@@ -205,6 +266,25 @@ def test_int2int_contains_when_key_exists(int2int_map):
 
 def test_int2int_contains_when_key_does_not_exist(int2int_map):
     assert 2541265478 not in int2int_map
+
+
+def test_int2int_contains_fail_when_invalid_key_type(int2int_map):
+    with pytest.raises(TypeError) as exc_info:
+        bool('1' in int2int_map)
+    exc_msg = str(exc_info)
+    assert "'key' must be an integer" in exc_msg
+
+
+def test_int2int_contains_fail_when_negative_key(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        bool(-1 in int2int_map)
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2int_contains_fail_when_key_is_too_big(int2int_map):
+    with pytest.raises(OverflowError) as exc_info:
+        bool((2 ** 64) in int2int_map)
+    assert "int too big to convert" in str(exc_info)
 
 
 def test_int2int_get_ptr(int2int_map):
@@ -467,13 +547,25 @@ def test_int2float_repr_when_not_empty_and_default_kwarg():
     assert m is not None
 
 
-def test_int2float_setitem_fail_when_invalid_key(int2float_map):
+def test_int2float_setitem_fail_when_invalid_key_type(int2float_map):
     with pytest.raises(TypeError) as exc_info:
         int2float_map['1'] = 100
     assert "'key' must be an integer" in str(exc_info)
 
 
-def test_int2float_setitem_fail_when_invalid_value(int2float_map):
+def test_int2float_setitem_fail_when_negative_key(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2float_map[-1] = 100
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2float_setitem_fail_when_key_is_too_big(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2float_map[2 ** 64] = 100
+    assert "int too big to convert" in str(exc_info)
+
+
+def test_int2float_setitem_fail_when_invalid_value_type(int2float_map):
     with pytest.raises(TypeError) as exc_info:
         int2float_map[1] = '100'
     assert "'value' must be a float" in str(exc_info)
@@ -487,10 +579,11 @@ def test_int2float_setitem_fail_when_size_exceeded(int2float_map):
     assert 'Maximum size has been exceeded' in str(exc_info)
 
 
-def test_int2float_setitem_getitem(int2float_map):
-    int2float_map[1] = 100
-    assert isinstance(int2float_map[1], float)
-    assert int2float_map[1] == 100.0
+@pytest.mark.parametrize('key', [0, (2 ** 64) - 1])
+def test_int2float_setitem_getitem(int2float_map, key):
+    int2float_map[key] = 100
+    assert isinstance(int2float_map[key], float)
+    assert int2float_map[key] == 100.0
 
 
 def test_int2float_setitem_twice(int2float_map):
@@ -528,10 +621,22 @@ def test_int2float_getitem_key_does_not_exist_and_default_arg_is_none():
     assert "'1'" in str(exc_info)
 
 
-def test_int2float_getitem_fail_when_invalid_key(int2float_map):
+def test_int2float_getitem_fail_when_invalid_key_type(int2float_map):
     with pytest.raises(TypeError) as exc_info:
         int2float_map['1']
     assert "'key' must be an integer" in str(exc_info)
+
+
+def test_int2float_getitem_fail_when_negative_key(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2float_map[-1]
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2float_getitem_fail_when_key_is_too_big(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2float_map[2 ** 64]
+    assert "int too big to convert" in str(exc_info)
 
 
 def test_int2float_getitem_fail_when_key_does_not_exist(int2float_map):
@@ -572,14 +677,26 @@ def test_int2float_get_when_key_does_not_exist_and_default_kwarg(
     assert value == 100.0
 
 
-def test_int2float_get_fail_when_invalid_key(int2float_map):
+def test_int2float_get_fail_when_invalid_key_type(int2float_map):
     with pytest.raises(TypeError) as exc_info:
         int2float_map.get('1')
     exc_msg = str(exc_info)
-    assert 'argument 1 must be int' in exc_msg
+    assert "'key' must be an integer" in exc_msg
 
 
-def test_int2float_get_fail_when_invalid_default(int2float_map):
+def test_int2float_get_fail_when_negative_key(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2float_map.get(-1)
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2float_get_fail_when_key_is_too_big(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        int2float_map.get(2 ** 64)
+    assert "int too big to convert" in str(exc_info)
+
+
+def test_int2float_get_fail_when_invalid_default_type(int2float_map):
     with pytest.raises(TypeError) as exc_info:
         int2float_map.get(1, '1')
     exc_msg = str(exc_info)
@@ -593,6 +710,25 @@ def test_int2float_contains_when_key_exists(int2float_map):
 
 def test_int2float_contains_when_key_does_not_exist(int2float_map):
     assert 2541265478 not in int2float_map
+
+
+def test_int2float_contains_fail_when_invalid_key_type(int2float_map):
+    with pytest.raises(TypeError) as exc_info:
+        bool('1' in int2float_map)
+    exc_msg = str(exc_info)
+    assert "'key' must be an integer" in exc_msg
+
+
+def test_int2float_contains_fail_when_negative_key(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        bool(-1 in int2float_map)
+    assert "can't convert negative int to unsigned" in str(exc_info)
+
+
+def test_int2float_contains_fail_when_key_is_too_big(int2float_map):
+    with pytest.raises(OverflowError) as exc_info:
+        bool((2 ** 64) in int2float_map)
+    assert "int too big to convert" in str(exc_info)
 
 
 def test_int2float_get_ptr(int2float_map):

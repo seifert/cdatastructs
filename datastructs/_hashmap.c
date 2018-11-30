@@ -275,9 +275,12 @@ static PyObject* Int2Int_richcompare(Int2Int_t *self, PyObject *other, int op) {
 int Int2Int_contains(Int2Int_t *self, PyObject *key) {
     unsigned long long c_key;
 
-    c_key = PyLong_AsUnsignedLongLong(key);
-    if (c_key == (unsigned long long) -1) {
+    if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return -1;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
         return -1;
     }
 
@@ -288,9 +291,12 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
     unsigned long long c_key;
     size_t c_value;
 
-    c_key = PyLong_AsUnsignedLongLong(key);
-    if (c_key == (unsigned long long) -1) {
+    if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return -1;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
         return -1;
     }
 
@@ -298,9 +304,12 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
         PyErr_SetString(PyExc_NotImplementedError, "can't delete item");
         return -1;
     }
-    c_value = PyLong_AsSize_t(value);
-    if (c_value == (size_t) -1) {
+    if (!PyLong_Check(value)) {
         PyErr_SetString(PyExc_TypeError, "'value' must be an integer");
+        return -1;
+    }
+    c_value = PyLong_AsSize_t(value);
+    if ((c_value == (size_t) -1) && (PyErr_Occurred() != NULL)) {
         return -1;
     }
 
@@ -316,9 +325,12 @@ static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
     unsigned long long c_key;
     size_t c_value;
 
-    c_key = PyLong_AsUnsignedLongLong(key);
-    if (c_key == (unsigned long long) -1) {
+    if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
         return NULL;
     }
 
@@ -445,16 +457,26 @@ cleanup:
 
 static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
     char *kwnames[] = {"key", "default", NULL};
-    const unsigned long long key;
+    PyObject * key;
     PyObject * default_value = NULL;
-    size_t value;
+    unsigned long long c_key;
+    size_t c_default_value;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "K|O", kwnames,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwnames,
             &key, &default_value)) {
         return NULL;
     }
 
-    if (int2int_get(&self->hashmap, key, &value) == -1) {
+    if (!PyLong_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+        return NULL;
+    }
+
+    if (int2int_get(&self->hashmap, c_key, &c_default_value) == -1) {
         if (default_value == NULL) {
             Py_INCREF(Py_None);
             return Py_None;
@@ -463,11 +485,16 @@ static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
             PyErr_SetString(PyExc_TypeError, "'default' must be an integer");
             return NULL;
         }
+        c_default_value = PyLong_AsSize_t(default_value);
+        if ((c_default_value == (size_t) -1) && (PyErr_Occurred() != NULL)) {
+            return NULL;
+        }
+
         Py_INCREF(default_value);
         return default_value;
     }
 
-    return PyLong_FromSize_t(value);
+    return PyLong_FromSize_t(c_default_value);
 }
 
 static PyObject* Int2Int_keys(Int2Int_t *self) {
@@ -872,9 +899,12 @@ static PyObject* Int2Float_richcompare(Int2Float_t *self,
 int Int2Float_contains(Int2Float_t *self, PyObject *key) {
     unsigned long long c_key;
 
-    c_key = PyLong_AsUnsignedLongLong(key);
-    if (c_key == (unsigned long long) -1) {
+    if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return -1;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
         return -1;
     }
 
@@ -886,9 +916,12 @@ static int Int2Float_setitem(Int2Float_t *self,
     unsigned long long c_key;
     double c_value;
 
-    c_key = PyLong_AsUnsignedLongLong(key);
-    if (c_key == (unsigned long long) -1) {
+    if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return -1;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
         return -1;
     }
 
@@ -914,9 +947,12 @@ static PyObject* Int2Float_getitem(Int2Float_t *self, PyObject *key) {
     unsigned long long c_key;
     double c_value;
 
-    c_key = PyLong_AsUnsignedLongLong(key);
-    if (c_key == (unsigned long long) -1) {
+    if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
         return NULL;
     }
 
@@ -1045,16 +1081,26 @@ cleanup:
 static PyObject* Int2Float_get(Int2Float_t *self,
         PyObject *args, PyObject *kwds) {
     char *kwnames[] = {"key", "default", NULL};
-    const unsigned long long key;
+    PyObject * key;
     PyObject * default_value = NULL;
+    unsigned long long c_key;
     double value;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "K|O", kwnames,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwnames,
             &key, &default_value)) {
         return NULL;
     }
 
-    if (int2float_get(&self->hashmap, key, &value) == -1) {
+    if (!PyLong_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+        return NULL;
+    }
+
+    if (int2float_get(&self->hashmap, c_key, &value) == -1) {
         if (default_value == NULL) {
             Py_INCREF(Py_None);
             return Py_None;
