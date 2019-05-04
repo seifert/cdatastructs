@@ -26,6 +26,11 @@ class PyTest(TestCommand):
 setup(
     name='cdatastructs',
     description='Simple data structures accessible from both Python and C.',
+    long_description=(
+        'Simple data structures accessible from both Python and C. '
+        'Data in structures are stored as a primitive C types, so in '
+        'C you can compute data without Python overhead.'),
+    long_description_content_type='text/plain',
     version=VERSION,
     author='Jan Seifert',
     author_email='jan.seifert@fotkyzcest.net',
