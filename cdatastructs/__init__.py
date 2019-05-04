@@ -1,9 +1,9 @@
 """
-datastructs module provides simple data structures accessible from both
+cdatastructs module provides simple data structures accessible from both
 Python and C.
 """
 
-__version__ = '0.0.5'
+__version__ = '0.1.0'
 
 
 def get_c_sources_dir():

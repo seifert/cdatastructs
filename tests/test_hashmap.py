@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from datastructs.hashmap import Int2Int, Int2Float
+from cdatastructs.hashmap import Int2Int, Int2Float
 
 
 # Int2Int ---------------------------------------------------------------------
@@ -48,7 +48,7 @@ def test_int2int_bool_when_not_empty(int2int_map):
 
 def test_int2int_repr_when_empty(int2int_map):
     m = re.match(
-        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0/8\>',
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0/8\>',
         repr(int2int_map))
     assert m is not None
 
@@ -56,7 +56,7 @@ def test_int2int_repr_when_empty(int2int_map):
 def test_int2int_repr_when_not_empty(int2int_map):
     int2int_map[1] = 100
     m = re.match(
-        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 1/8\>',
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 1/8\>',
         repr(int2int_map))
     assert m is not None
 
@@ -64,7 +64,7 @@ def test_int2int_repr_when_not_empty(int2int_map):
 def test_int2int_repr_when_empty_and_default_arg():
     int2int_map = Int2Int(8, default=100)
     m = re.match(
-        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
         r'used 0/8, default 100\>',
         repr(int2int_map))
     assert m is not None
@@ -74,7 +74,7 @@ def test_int2int_repr_when_not_empty_and_default_arg():
     int2int_map = Int2Int(8, default=100)
     int2int_map[1] = 100
     m = re.match(
-        r'\<datastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
         r'used 1/8, default 100\>',
         repr(int2int_map))
     assert m is not None
@@ -427,7 +427,7 @@ def test_int2int_pickle_dumps(int2int_map):
     data = pickle.dumps(int2int_map)
 
     assert data == (
-        b'\x80\x03cdatastructs.hashmap\nInt2Int\nq\x00K\x08N\x86q\x01Rq\x02K'
+        b'\x80\x03ccdatastructs.hashmap\nInt2Int\nq\x00K\x08N\x86q\x01Rq\x02K'
         b'\x06C\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00'
         b'\x00\x00g\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00'
@@ -451,7 +451,7 @@ def test_int2int_pickle_loads(int2int_map):
         int2int_map[i] = 100 + i
 
     new = pickle.loads(
-        b'\x80\x03cdatastructs.hashmap\nInt2Int\nq\x00K\x08N\x86q\x01Rq\x02K'
+        b'\x80\x03ccdatastructs.hashmap\nInt2Int\nq\x00K\x08N\x86q\x01Rq\x02K'
         b'\x06C\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00'
         b'\x00\x00g\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00'
@@ -515,7 +515,7 @@ def test_int2float_bool_when_not_empty(int2float_map):
 
 def test_int2float_repr_when_empty(int2float_map):
     m = re.match(
-        r'\<datastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, used 0/8\>',
+        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, used 0/8\>',
         repr(int2float_map))
     assert m is not None
 
@@ -523,7 +523,7 @@ def test_int2float_repr_when_empty(int2float_map):
 def test_int2float_repr_when_not_empty(int2float_map):
     int2float_map[1] = 100
     m = re.match(
-        r'\<datastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, used 1/8\>',
+        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, used 1/8\>',
         repr(int2float_map))
     assert m is not None
 
@@ -531,7 +531,7 @@ def test_int2float_repr_when_not_empty(int2float_map):
 def test_int2float_repr_when_empty_and_default_arg():
     int2float_map = Int2Float(8, default=100)
     m = re.match(
-        r'\<datastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
         r'used 0/8, default 100.0\>',
         repr(int2float_map))
     assert m is not None
@@ -541,7 +541,7 @@ def test_int2float_repr_when_not_empty_and_default_kwarg():
     int2float_map = Int2Float(8, default=100)
     int2float_map[1] = 100
     m = re.match(
-        r'\<datastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
         r'used 1/8, default 100.0\>',
         repr(int2float_map))
     assert m is not None
@@ -874,7 +874,7 @@ def test_int2float_pickle_dumps(int2float_map):
     pprint.pprint(data)
 
     assert data == (
-        b'\x80\x03cdatastructs.hashmap\nInt2Float\nq\x00K\x08N\x86q\x01Rq\x02'
+        b'\x80\x03ccdatastructs.hashmap\nInt2Float\nq\x00K\x08N\x86q\x01Rq\x02'
         b'K\x06C\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\xc0Y@\x01\x00\x00\x00\x00\x00\x00\x00'
@@ -898,7 +898,7 @@ def test_int2float_pickle_loads(int2float_map):
         int2float_map[i] = 100 + i
 
     new = pickle.loads(
-        b'\x80\x03cdatastructs.hashmap\nInt2Float\nq\x00K\x08N\x86q\x01Rq\x02'
+        b'\x80\x03ccdatastructs.hashmap\nInt2Float\nq\x00K\x08N\x86q\x01Rq\x02'
         b'K\x06C\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00'
         b'\x00\x00\x00\x00\x00\x00\x00\xc0Y@\x01\x00\x00\x00\x00\x00\x00\x00'

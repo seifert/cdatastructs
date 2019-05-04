@@ -2,7 +2,7 @@
 import array
 import random
 
-from datastructs.hashmap import Int2Int
+from cdatastructs.hashmap import Int2Int
 
 from example.computer import sum
 

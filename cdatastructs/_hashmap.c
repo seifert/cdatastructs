@@ -80,7 +80,7 @@ static PyObject* Int2IntIterator_next(HashmapIterator_t *self) {
 
 static PyTypeObject Int2IntIterator_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "datastructs.hashmap.Int2IntIterator",
+    .tp_name = "cdatastructs.hashmap.Int2IntIterator",
     .tp_doc = "Iterator over hashmap",
     .tp_basicsize = sizeof(HashmapIterator_t),
     .tp_itemsize = 0,
@@ -602,7 +602,7 @@ static PyMethodDef Int2Int_methods[] = {
 
 static PyTypeObject Int2Int_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "datastructs.hashmap.Int2Int",                      /* tp_name */
+    "cdatastructs.hashmap.Int2Int",                     /* tp_name */
     sizeof(Int2Int_t),                                  /* tp_basicsize */
     0,                                                  /* tp_itemsize */
     (destructor) Int2Int_dealloc,                       /* tp_dealloc */
@@ -691,7 +691,7 @@ static PyObject* Int2FloatIterator_next(HashmapIterator_t *self) {
 
 static PyTypeObject Int2FloatIterator_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "datastructs.hashmap.Int2FloatIterator",
+    .tp_name = "cdatastructs.hashmap.Int2FloatIterator",
     .tp_doc = "Iterator over hashmap",
     .tp_basicsize = sizeof(HashmapIterator_t),
     .tp_itemsize = 0,
@@ -1233,7 +1233,7 @@ static PyMethodDef Int2Float_methods[] = {
 
 static PyTypeObject Int2Float_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "datastructs.hashmap.Int2Float",                    /* tp_name */
+    "cdatastructs.hashmap.Int2Float",                   /* tp_name */
     sizeof(Int2Float_t),                                /* tp_basicsize */
     0,                                                  /* tp_itemsize */
     (destructor) Int2Float_dealloc,                     /* tp_dealloc */

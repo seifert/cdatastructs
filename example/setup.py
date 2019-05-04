@@ -3,17 +3,17 @@ import os.path
 
 from distutils.core import setup, Extension
 
-from datastructs import get_c_sources_dir
+from cdatastructs import get_c_sources_dir
 
 
 setup(
-    name='datastructs-example',
+    name='cdatastructs-example',
     author='Jan Seifert',
     author_email='jan.seifert@fotkyzcest.net',
     license='BSD',
     packages=['example'],
     install_requires=[
-        'datastructs',
+        'cdatastructs',
     ],
     ext_modules=[
         Extension(

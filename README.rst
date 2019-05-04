@@ -1,5 +1,5 @@
-datastructs
-===========
+cdatastructs
+============
 
 Simple data structures accessible from both Python and C. Data in structures
 are stored as a primitive C types, so in C you can compute data without Python
@@ -9,7 +9,7 @@ Python code:
 
 ::
 
-    >>> from datastructs.hashmap import Int2Int
+    >>> from cdatastructs.hashmap import Int2Int
 
     >>> id2index = Int2Int(1000)
 

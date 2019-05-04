@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages, Extension
 from setuptools.command.test import test as TestCommand
 
-from datastructs import __version__ as VERSION
+from cdatastructs import __version__ as VERSION
 
 
 class PyTest(TestCommand):
@@ -24,7 +24,7 @@ class PyTest(TestCommand):
 
 
 setup(
-    name='datastructs',
+    name='cdatastructs',
     description='Simple data structures accessible from both Python and C.',
     version=VERSION,
     author='Jan Seifert',
@@ -50,8 +50,8 @@ setup(
     },
     ext_modules=[
         Extension(
-            name='datastructs.hashmap',
-            sources=['datastructs/_hashmap.c', 'datastructs/hashmap.c'],
+            name='cdatastructs.hashmap',
+            sources=['cdatastructs/_hashmap.c', 'cdatastructs/hashmap.c'],
             extra_compile_args=['--std=c99'],
         ),
     ],
