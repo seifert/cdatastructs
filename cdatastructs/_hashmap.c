@@ -537,6 +537,10 @@ static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
     return PyLong_FromVoidPtr(&self->hashmap);
 }
 
+static PyObject* Int2Int_get_max_size(Int2Int_t *self) {
+    return PyLong_FromSize_t(self->hashmap.size);
+}
+
 static PySequenceMethods Int2Int_sequence_methods = {
     0,                                                  /* sq_length */
     0,                                                  /* sq_concat */
@@ -600,6 +604,13 @@ static PyMethodDef Int2Int_methods[] = {
     {NULL}
 };
 
+static PyGetSetDef Int2Int_getset[] = {
+    {"max_size", (getter) Int2Int_get_max_size, NULL,
+            "upperbound limit on the number of items that can be placed "
+            "in the mapping\n", NULL},
+    {NULL}
+};
+
 static PyTypeObject Int2Int_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "cdatastructs.hashmap.Int2Int",                     /* tp_name */
@@ -635,7 +646,7 @@ static PyTypeObject Int2Int_type = {
     0,                                                  /* tp_iternext */
     Int2Int_methods,                                    /* tp_methods */
     0,                                                  /* tp_members */
-    0,                                                  /* tp_getset */
+    Int2Int_getset,                                     /* tp_getset */
     0,                                                  /* tp_base */
     0,                                                  /* tp_dict */
     0,                                                  /* tp_descr_get */
@@ -1168,6 +1179,10 @@ static PyObject* Int2Float_get_ptr(Int2Float_t *self) {
     return PyLong_FromVoidPtr(&self->hashmap);
 }
 
+static PyObject* Int2Float_get_max_size(Int2Float_t *self) {
+    return PyLong_FromSize_t(self->hashmap.size);
+}
+
 static PySequenceMethods Int2Float_sequence_methods = {
     0,                                                  /* sq_length */
     0,                                                  /* sq_concat */
@@ -1231,6 +1246,13 @@ static PyMethodDef Int2Float_methods[] = {
     {NULL}
 };
 
+static PyGetSetDef Int2Float_getset[] = {
+    {"max_size", (getter) Int2Float_get_max_size, NULL,
+            "upperbound limit on the number of items that can be placed "
+            "in the mapping\n", NULL},
+    {NULL}
+};
+
 static PyTypeObject Int2Float_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "cdatastructs.hashmap.Int2Float",                   /* tp_name */
@@ -1266,7 +1288,7 @@ static PyTypeObject Int2Float_type = {
     0,                                                  /* tp_iternext */
     Int2Float_methods,                                  /* tp_methods */
     0,                                                  /* tp_members */
-    0,                                                  /* tp_getset */
+    Int2Float_getset,                                   /* tp_getset */
     0,                                                  /* tp_base */
     0,                                                  /* tp_dict */
     0,                                                  /* tp_descr_get */

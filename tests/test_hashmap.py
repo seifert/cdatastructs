@@ -476,6 +476,10 @@ def test_int2int_pickle_loads(int2int_map):
     assert set(new.values()) == {101, 102, 103, 104, 105, 106}
 
 
+def test_int2int_max_size(int2int_map):
+    assert int2int_map.max_size == 8
+
+
 # Int2Float -------------------------------------------------------------------
 
 @pytest.fixture(scope='function')
@@ -921,3 +925,7 @@ def test_int2float_pickle_loads(int2float_map):
     assert set(new.keys()) == {1, 2, 3, 4, 5, 6}
     assert all(isinstance(v, float) for v in new.values())
     assert set(new.values()) == {101.0, 102.0, 103.0, 104.0, 105.0, 106.0}
+
+
+def test_int2float_max_size(int2float_map):
+    assert int2float_map.max_size == 8
