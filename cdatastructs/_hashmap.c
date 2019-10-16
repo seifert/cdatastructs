@@ -96,9 +96,10 @@ static PyObject* Int2Int_new(PyTypeObject *type,
         PyObject *args, PyObject *kwds) {
 
     char *kwnames[] = {"size", "default", NULL};
-    const Py_ssize_t size;
+    Py_ssize_t size;
     PyObject *default_value = NULL;
     Int2Int_t *self;
+    bool growable;
     size_t table_size;
     size_t int2int_memory_size;
     void *int2int_memory;
@@ -131,6 +132,8 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     /* Allocate memory for Int2IntHashTable_t structure and hashtable. At
        the beginning of block of the memory Int2IntHashTable_t structure
        is placed, followed by hashtable (array of Int2IntItem_t). */
+    growable = size ? false : true;
+    size = growable ? 1 : size;
     table_size = (size * 1.2) + 1;
     int2int_memory_size = sizeof(Int2IntHashTable_t) +
             (table_size * sizeof(Int2IntItem_t));
@@ -145,6 +148,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     self->default_value = default_value;
     self->hashmap = (Int2IntHashTable_t*) int2int_memory;
     self->hashmap->size = size;
+    self->hashmap->growable = growable;
     self->hashmap->current_size = 0;
     self->hashmap->table_size = table_size;
     self->hashmap->table = int2int_memory + sizeof(Int2IntHashTable_t);
@@ -162,15 +166,28 @@ static void Int2Int_dealloc(Int2Int_t *self) {
 
 static PyObject* Int2Int_repr(Int2Int_t *self) {
     if (self->default_value != NULL) {
-        return PyUnicode_FromFormat(
-                "<%s: object at %p, used %zd/%zd, default %A>",
-                self->ob_base.ob_type->tp_name, self,
-                self->hashmap->current_size, self->hashmap->size,
-                self->default_value);
+        if (self->hashmap->growable) {
+            return PyUnicode_FromFormat(
+                    "<%s: object at %p, used %zd, default %A>",
+                    self->ob_base.ob_type->tp_name, self,
+                    self->hashmap->current_size, self->default_value);
+        } else {
+            return PyUnicode_FromFormat(
+                    "<%s: object at %p, used %zd/%zd, default %A>",
+                    self->ob_base.ob_type->tp_name, self,
+                    self->hashmap->current_size, self->hashmap->size,
+                    self->default_value);
+        }
     }
-    return PyUnicode_FromFormat("<%s: object at %p, used %zd/%zd>",
-            self->ob_base.ob_type->tp_name, self,
-            self->hashmap->current_size, self->hashmap->size);
+    if (self->hashmap->growable) {
+        return PyUnicode_FromFormat("<%s: object at %p, used %zd>",
+                self->ob_base.ob_type->tp_name, self,
+                self->hashmap->current_size);
+    } else {
+        return PyUnicode_FromFormat("<%s: object at %p, used %zd/%zd>",
+                self->ob_base.ob_type->tp_name, self,
+                self->hashmap->current_size, self->hashmap->size);
+    }
 }
 
 static Py_ssize_t Int2Int_len(Int2Int_t *self) {
@@ -294,6 +311,12 @@ int Int2Int_contains(Int2Int_t *self, PyObject *key) {
 static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
     unsigned long long c_key;
     size_t c_value;
+    size_t new_size;
+    size_t new_table_size;
+    size_t new_int2int_memory_size;
+    void *new_int2int_memory;
+    Int2IntHashTable_t *new_hashmap;
+    Int2IntItem_t item;
 
     if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
@@ -317,6 +340,42 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
         return -1;
     }
 
+    // Resize hashmap if necessary
+    if (self->hashmap->growable &&
+            (self->hashmap->current_size == self->hashmap->size)) {
+        new_size = self->hashmap->size * 2;
+        new_table_size = (new_size * 1.2) + 1;
+        new_int2int_memory_size = sizeof(Int2IntHashTable_t) +
+                (new_table_size * sizeof(Int2IntItem_t));
+        new_int2int_memory = PyMem_RawMalloc(new_int2int_memory_size);
+        if (!new_int2int_memory) {
+            PyErr_NoMemory();
+            return -1;
+        }
+        memset(new_int2int_memory, 0, new_int2int_memory_size);
+
+        new_hashmap = (Int2IntHashTable_t*) new_int2int_memory;
+        new_hashmap->size = new_size;
+        new_hashmap->growable = self->hashmap->growable;
+        new_hashmap->current_size = 0;
+        new_hashmap->table_size = new_table_size;
+        new_hashmap->table = new_int2int_memory + sizeof(Int2IntHashTable_t);
+
+        for (size_t i=0; i<self->hashmap->table_size; ++i) {
+            item = self->hashmap->table[i];
+            if (item.status == USED) {
+                if (int2int_set(new_hashmap, item.key, item.value) == -1) {
+                    PyMem_RawFree(new_hashmap);
+                    PyErr_SetString(PyExc_RuntimeError, "Can't resize buffer");
+                    return -1;
+                }
+            }
+        }
+
+        PyMem_RawFree(self->hashmap);
+        self->hashmap = new_hashmap;
+    }
+    // Put item
     if (int2int_set(self->hashmap, c_key, c_value) == -1) {
         PyErr_SetString(PyExc_RuntimeError, "Maximum size has been exceeded");
         return -1;
@@ -385,7 +444,7 @@ static PyObject* Int2Int_reduce(Int2Int_t *self) {
                 PyBytes_FromStringAndSize((const char *) self->hashmap->table,
                         sizeof(Int2IntItem_t) * self->hashmap->table_size));
         /* callable args */
-        PyTuple_SET_ITEM(args, 0, PyLong_FromSize_t(self->hashmap->size));
+        PyTuple_SET_ITEM(args, 0, PyLong_FromSize_t(self->hashmap->size));  // TODO
         if (self->default_value != NULL) {
             Py_INCREF(self->default_value);
             PyTuple_SET_ITEM(args, 1, self->default_value);
@@ -542,7 +601,21 @@ static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
 }
 
 static PyObject* Int2Int_get_max_size(Int2Int_t *self) {
-    return PyLong_FromSize_t(self->hashmap->size);
+    if (!self->hashmap->growable) {
+        return PyLong_FromSize_t(self->hashmap->size);
+    }
+    else {
+        Py_RETURN_NONE;
+    }
+}
+
+static PyObject* Int2Int_get_growable(Int2Int_t *self) {
+    if (self->hashmap->growable) {
+    	Py_RETURN_TRUE;
+    }
+    else {
+        Py_RETURN_FALSE;
+    }
 }
 
 static PySequenceMethods Int2Int_sequence_methods = {
@@ -612,6 +685,9 @@ static PyGetSetDef Int2Int_getset[] = {
     {"max_size", (getter) Int2Int_get_max_size, NULL,
             "upperbound limit on the number of items that can be placed "
             "in the mapping\n", NULL},
+    {"growable", (getter) Int2Int_get_growable, NULL,
+            "flag that indicates that structure is either growable or has "
+            "fixed size\n", NULL},
     {NULL}
 };
 

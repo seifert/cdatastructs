@@ -16,6 +16,11 @@ def int2int_map():
     return Int2Int(8)
 
 
+@pytest.fixture(scope='function')
+def int2int_growable_map():
+    return Int2Int(0)
+
+
 def test_int2int_new_fail_when_invalid_size_arg():
     with pytest.raises(TypeError) as exc_info:
         Int2Int('8')
@@ -80,6 +85,41 @@ def test_int2int_repr_when_not_empty_and_default_arg():
     assert m is not None
 
 
+def test_int2int_repr_when_growable(int2int_growable_map):
+    m = re.match(
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0\>',
+        repr(int2int_growable_map))
+    assert m is not None
+
+
+def test_int2int_repr_when_growable_and_not_empty(int2int_growable_map):
+    print(int2int_growable_map.max_size)
+    int2int_growable_map[1] = 100
+    m = re.match(
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 1\>',
+        repr(int2int_growable_map))
+    assert m is not None
+
+
+def test_int2int_repr_when_growable_and_default_arg():
+    int2int_growable_map = Int2Int(0, default=100)
+    m = re.match(
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'used 0, default 100\>',
+        repr(int2int_growable_map))
+    assert m is not None
+
+
+def test_int2int_repr_when_growable_and_not_empty_and_default_arg():
+    int2int_growable_map = Int2Int(0, default=100)
+    int2int_growable_map[1] = 100
+    m = re.match(
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'used 1, default 100\>',
+        repr(int2int_growable_map))
+    assert m is not None
+
+
 def test_int2int_setitem_fail_when_invalid_key_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map['1'] = 100
@@ -122,6 +162,18 @@ def test_int2int_setitem_fail_when_size_exceeded(int2int_map):
     with pytest.raises(RuntimeError) as exc_info:
         int2int_map[9] = i + 100 + 1
     assert 'Maximum size has been exceeded' in str(exc_info)
+
+
+def test_int2int_setitem_growable(int2int_growable_map):
+    for i in range(9):
+        int2int_growable_map[i] = i + 100
+    assert int2int_growable_map.max_size is None
+    assert len(int2int_growable_map) == 9
+    assert set(int2int_growable_map.items()) == {
+        (0, 100), (1, 101), (2, 102),
+        (3, 103), (4, 104), (5, 105),
+        (6, 106), (7, 107), (8, 108),
+    }
 
 
 @pytest.mark.parametrize('key', [0, (2 ** 64) - 1])
@@ -294,6 +346,7 @@ def test_int2int_get_ptr(int2int_map):
 
         _fields_ = [
             ('size', ctypes.c_size_t),
+            ('growable', ctypes.c_bool),
             ('current_size', ctypes.c_size_t),
             ('table_size', ctypes.c_size_t),
             ('table', ctypes.c_void_p),
@@ -478,6 +531,12 @@ def test_int2int_pickle_loads(int2int_map):
 
 def test_int2int_max_size(int2int_map):
     assert int2int_map.max_size == 8
+
+
+@pytest.mark.parametrize('size, expected', [(0, True), (1, False), (8, False)])
+def test_int2int_growable(size, expected):
+    int2int_map = Int2Int(size)
+    assert int2int_map.growable is expected
 
 
 # Int2Float -------------------------------------------------------------------

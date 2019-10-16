@@ -2,6 +2,7 @@
 #ifndef HASHMAP_H_
 #define HASHMAP_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef enum {
@@ -21,6 +22,7 @@ typedef struct {
 
 typedef struct {
     size_t size;
+    bool growable;
     size_t current_size;
     size_t table_size;
     Int2IntItem_t *table;
