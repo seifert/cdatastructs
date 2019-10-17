@@ -14,9 +14,9 @@ cdef extern from "hashmap.h":
 
     ctypedef struct Int2IntHashTable_t:
         size_t size
-        bool growable
         size_t current_size
         size_t table_size
+        bool readonly
         Int2IntItem_t * table
 
     cdef int int2int_set(

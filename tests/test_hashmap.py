@@ -13,23 +13,12 @@ from cdatastructs.hashmap import Int2Int, Int2Float
 
 @pytest.fixture(scope='function')
 def int2int_map():
-    return Int2Int(8)
+    return Int2Int()
 
 
-@pytest.fixture(scope='function')
-def int2int_growable_map():
-    return Int2Int(0)
-
-
-def test_int2int_new_fail_when_invalid_size_arg():
+def test_int2int_new_fail_when_invalid_default_kwarg():
     with pytest.raises(TypeError) as exc_info:
-        Int2Int('8')
-    assert "'str' object cannot be interpreted as an integer" in str(exc_info)
-
-
-def test_int2int_new_fail_when_invalid_default_arg():
-    with pytest.raises(TypeError) as exc_info:
-        Int2Int(8, default='8')
+        Int2Int(default='8')
     assert "'default' must be an integer" in str(exc_info)
 
 
@@ -53,7 +42,7 @@ def test_int2int_bool_when_not_empty(int2int_map):
 
 def test_int2int_repr_when_empty(int2int_map):
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0/8\>',
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0\>',
         repr(int2int_map))
     assert m is not None
 
@@ -61,62 +50,38 @@ def test_int2int_repr_when_empty(int2int_map):
 def test_int2int_repr_when_not_empty(int2int_map):
     int2int_map[1] = 100
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 1/8\>',
-        repr(int2int_map))
-    assert m is not None
-
-
-def test_int2int_repr_when_empty_and_default_arg():
-    int2int_map = Int2Int(8, default=100)
-    m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
-        r'used 0/8, default 100\>',
-        repr(int2int_map))
-    assert m is not None
-
-
-def test_int2int_repr_when_not_empty_and_default_arg():
-    int2int_map = Int2Int(8, default=100)
-    int2int_map[1] = 100
-    m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
-        r'used 1/8, default 100\>',
-        repr(int2int_map))
-    assert m is not None
-
-
-def test_int2int_repr_when_growable(int2int_growable_map):
-    m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0\>',
-        repr(int2int_growable_map))
-    assert m is not None
-
-
-def test_int2int_repr_when_growable_and_not_empty(int2int_growable_map):
-    print(int2int_growable_map.max_size)
-    int2int_growable_map[1] = 100
-    m = re.match(
         r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 1\>',
-        repr(int2int_growable_map))
+        repr(int2int_map))
     assert m is not None
 
 
-def test_int2int_repr_when_growable_and_default_arg():
-    int2int_growable_map = Int2Int(0, default=100)
+def test_int2int_repr_when_empty_and_default_kwarg():
+    int2int_map = Int2Int(default=100)
     m = re.match(
         r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
         r'used 0, default 100\>',
-        repr(int2int_growable_map))
+        repr(int2int_map))
     assert m is not None
 
 
-def test_int2int_repr_when_growable_and_not_empty_and_default_arg():
-    int2int_growable_map = Int2Int(0, default=100)
-    int2int_growable_map[1] = 100
+def test_int2int_repr_when_not_empty_and_default_kwarg():
+    int2int_map = Int2Int(default=100)
+    int2int_map[1] = 100
     m = re.match(
         r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
         r'used 1, default 100\>',
-        repr(int2int_growable_map))
+        repr(int2int_map))
+    assert m is not None
+
+
+def test_int2int_repr_when_readonly(int2int_map):
+    int2int_map[1] = 100
+    int2int_map.make_readonly()
+    m = re.match(
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'used 1, read-only\>',
+        repr(int2int_map))
+    print(repr(int2int_map))
     assert m is not None
 
 
@@ -156,29 +121,18 @@ def test_int2int_setitem_fail_when_value_is_too_big(int2int_map):
     assert "Python int too large to convert to C size_t" in str(exc_info)
 
 
-def test_int2int_setitem_fail_when_size_exceeded(int2int_map):
-    for i in range(8):
-        int2int_map[i] = i + 100
+def test_int2int_setitem_fail_when_readonly(int2int_map):
+    int2int_map[1] = 100
+    int2int_map.make_readonly()
     with pytest.raises(RuntimeError) as exc_info:
-        int2int_map[9] = i + 100 + 1
-    assert 'Maximum size has been exceeded' in str(exc_info)
-
-
-def test_int2int_setitem_growable(int2int_growable_map):
-    for i in range(9):
-        int2int_growable_map[i] = i + 100
-    assert int2int_growable_map.max_size is None
-    assert len(int2int_growable_map) == 9
-    assert set(int2int_growable_map.items()) == {
-        (0, 100), (1, 101), (2, 102),
-        (3, 103), (4, 104), (5, 105),
-        (6, 106), (7, 107), (8, 108),
-    }
+        int2int_map[2] = 200
+    assert 'Instance is read-only' in str(exc_info)
 
 
 @pytest.mark.parametrize('key', [0, (2 ** 64) - 1])
 def test_int2int_setitem_getitem(int2int_map, key):
     int2int_map[key] = 100
+    assert len(int2int_map) == 1
     assert isinstance(int2int_map[key], int)
     assert int2int_map[key] == 100
 
@@ -186,33 +140,94 @@ def test_int2int_setitem_getitem(int2int_map, key):
 def test_int2int_setitem_twice(int2int_map):
     int2int_map[1] = 100
     int2int_map[1] = 200
+    assert len(int2int_map) == 1
     assert isinstance(int2int_map[1], int)
     assert int2int_map[1] == 200
+
+
+def test_int2int_setitem_more_items(int2int_map):
+
+    class Int2IntHashTable_t(ctypes.Structure):
+
+        _fields_ = [
+            ('size', ctypes.c_size_t),
+            ('current_size', ctypes.c_size_t),
+            ('table_size', ctypes.c_size_t),
+            ('readonly', ctypes.c_bool),
+            ('table', ctypes.c_void_p),
+        ]
+
+    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+
+    assert t.size == 8
+    assert t.current_size == 0
+
+    for i in range(16):
+        int2int_map[i] = i + 100
+
+    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+
+    assert len(int2int_map) == 16
+    assert set(int2int_map.items()) == {
+        (0, 100), (1, 101), (2, 102), (3, 103),
+        (4, 104), (5, 105), (6, 106), (7, 107),
+        (8, 108), (9, 109), (10, 110), (11, 111),
+        (12, 112), (13, 113), (14, 114), (15, 115),
+    }
+    assert t.size == 16
+    assert t.current_size == 16
 
 
 def test_int2int_setitem_delitem(int2int_map):
     int2int_map[1] = 100
     with pytest.raises(NotImplementedError) as exc_info:
         del int2int_map[1]
-    assert "can't delete item" in str(exc_info)
+    assert "Can't delete item" in str(exc_info)
 
 
-def test_int2int_getitem_key_does_not_exist_and_default_arg():
-    int2int_map = Int2Int(8, 100)
-    assert isinstance(int2int_map[1], int)
-    assert int2int_map[1] == 100
-    assert len(int2int_map) == 1
+def test_int2int_getitem_more_keys_does_not_exist_and_default_kwarg():
+
+    class Int2IntHashTable_t(ctypes.Structure):
+
+        _fields_ = [
+            ('size', ctypes.c_size_t),
+            ('current_size', ctypes.c_size_t),
+            ('table_size', ctypes.c_size_t),
+            ('readonly', ctypes.c_bool),
+            ('table', ctypes.c_void_p),
+        ]
+
+    int2int_map = Int2Int(default=100)
+    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+
+    assert t.size == 8
+    assert t.current_size == 0
+
+    for i in range(16):
+        int2int_map[i]
+
+    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+
+    assert len(int2int_map) == 16
+    assert set(int2int_map.items()) == {
+        (0, 100), (1, 100), (2, 100), (3, 100),
+        (4, 100), (5, 100), (6, 100), (7, 100),
+        (8, 100), (9, 100), (10, 100), (11, 100),
+        (12, 100), (13, 100), (14, 100), (15, 100),
+    }
+    assert t.size == 16
+    assert t.current_size == 16
 
 
 def test_int2int_getitem_key_does_not_exist_and_default_kwarg():
-    int2int_map = Int2Int(8, default=100)
+    int2int_map = Int2Int(default=100)
     assert isinstance(int2int_map[1], int)
     assert int2int_map[1] == 100
     assert len(int2int_map) == 1
 
 
-def test_int2int_getitem_key_does_not_exist_and_default_arg_is_none():
-    int2int_map = Int2Int(8, None)
+def test_int2int_getitem_key_does_not_exist_and_default_kwarg_is_none():
+    int2int_map = Int2Int(default=None)
     with pytest.raises(KeyError) as exc_info:
         int2int_map[1]
     assert "'1'" in str(exc_info)
@@ -242,19 +257,11 @@ def test_int2int_getitem_fail_when_key_does_not_exist(int2int_map):
     assert "'1'" in str(exc_info)
 
 
-def test_int2int_getitem_fail_when_size_exceeded():
-    int2int_map = Int2Int(8, 0)
-    for i in range(8):
-        int2int_map[i] = i + 100
-    with pytest.raises(RuntimeError) as exc_info:
-        int2int_map[9]
-    assert 'Maximum size has been exceeded' in str(exc_info)
-
-
 def test_int2int_get(int2int_map):
     int2int_map[1] = 100
-    assert isinstance(int2int_map.get(1), int)
-    assert int2int_map.get(1) == 100
+    value = int2int_map.get(1)
+    assert value == 100
+    assert isinstance(value, int)
 
 
 def test_int2int_get_when_key_does_not_exist(int2int_map):
@@ -264,13 +271,13 @@ def test_int2int_get_when_key_does_not_exist(int2int_map):
 def test_int2int_get_when_key_does_not_exist_and_default_arg(int2int_map):
     value = int2int_map.get(1, 100)
     assert isinstance(value, int)
-    assert value == 100.0
+    assert value == 100
 
 
 def test_int2int_get_when_key_does_not_exist_and_default_kwarg(int2int_map):
     value = int2int_map.get(1, default=100)
     assert isinstance(value, int)
-    assert value == 100.0
+    assert value == 100
 
 
 def test_int2int_get_fail_when_invalid_key_type(int2int_map):
@@ -346,9 +353,9 @@ def test_int2int_get_ptr(int2int_map):
 
         _fields_ = [
             ('size', ctypes.c_size_t),
-            ('growable', ctypes.c_bool),
             ('current_size', ctypes.c_size_t),
             ('table_size', ctypes.c_size_t),
+            ('readonly', ctypes.c_bool),
             ('table', ctypes.c_void_p),
         ]
 
@@ -404,14 +411,14 @@ def test_int2int_items(int2int_map):
 
 
 def test_int2int_equal_when_empty():
-    a = Int2Int(8)
-    b = Int2Int(8)
+    a = Int2Int()
+    b = Int2Int()
     assert a == b
 
 
 def test_int2int_equal_when_same_keys_and_values():
-    a = Int2Int(8)
-    b = Int2Int(8)
+    a = Int2Int()
+    b = Int2Int()
     for i in range(1, 7, 1):
         a[i] = 100 + i
         b[i] = 100 + i
@@ -419,7 +426,7 @@ def test_int2int_equal_when_same_keys_and_values():
 
 
 def test_int2int_equal_with_dict_when_same_keys_and_values():
-    a = Int2Int(8)
+    a = Int2Int()
     b = {}
     for i in range(1, 7, 1):
         a[i] = 100 + i
@@ -428,8 +435,8 @@ def test_int2int_equal_with_dict_when_same_keys_and_values():
 
 
 def test_int2int_not_equal_when_same_size_same_keys_but_different_values():
-    a = Int2Int(8)
-    b = Int2Int(8)
+    a = Int2Int()
+    b = Int2Int()
     for i in range(1, 7, 1):
         a[i] = 100 + i
         b[i] = 100 + i
@@ -438,8 +445,8 @@ def test_int2int_not_equal_when_same_size_same_keys_but_different_values():
 
 
 def test_int2int_not_equal_when_same_size_same_values_but_different_keys():
-    a = Int2Int(8)
-    b = Int2Int(8)
+    a = Int2Int()
+    b = Int2Int()
     for i in range(1, 7, 1):
         a[i] = 100 + i
         b[i] = 100 + i
@@ -449,8 +456,8 @@ def test_int2int_not_equal_when_same_size_same_values_but_different_keys():
 
 
 def test_int2int_not_equal_when_different_size():
-    a = Int2Int(8)
-    b = Int2Int(8)
+    a = Int2Int()
+    b = Int2Int()
     for i in range(1, 7, 1):
         a[i] = 100 + i
         b[i] = 100 + i
@@ -474,6 +481,7 @@ def test_int2int_eq_fail_when_invalid_operator(int2int_map, op):
     assert 'is not supported' in str(exc_info)
 
 
+@pytest.mark.skip('TODO')
 def test_int2int_pickle_dumps(int2int_map):
     for i in range(1, 7, 1):
         int2int_map[i] = 100 + i
@@ -499,6 +507,7 @@ def test_int2int_pickle_dumps(int2int_map):
     )
 
 
+@pytest.mark.skip('TODO')
 def test_int2int_pickle_loads(int2int_map):
     for i in range(1, 7, 1):
         int2int_map[i] = 100 + i
@@ -529,14 +538,13 @@ def test_int2int_pickle_loads(int2int_map):
     assert set(new.values()) == {101, 102, 103, 104, 105, 106}
 
 
-def test_int2int_max_size(int2int_map):
-    assert int2int_map.max_size == 8
+def test_int2int_readonly_flag_is_false(int2int_map):
+    assert int2int_map.readonly is False
 
 
-@pytest.mark.parametrize('size, expected', [(0, True), (1, False), (8, False)])
-def test_int2int_growable(size, expected):
-    int2int_map = Int2Int(size)
-    assert int2int_map.growable is expected
+def test_int2int_readonly_flag_is_true(int2int_map):
+    int2int_map.make_readonly()
+    assert int2int_map.readonly is True
 
 
 # Int2Float -------------------------------------------------------------------

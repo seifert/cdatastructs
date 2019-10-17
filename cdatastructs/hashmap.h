@@ -22,9 +22,9 @@ typedef struct {
 
 typedef struct {
     size_t size;
-    bool growable;
     size_t current_size;
     size_t table_size;
+    bool readonly;
     Int2IntItem_t *table;
 } Int2IntHashTable_t;
 
