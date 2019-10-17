@@ -371,6 +371,13 @@ def test_int2int_from_ptr(int2int_map):
     assert "Instance is read-only" in str(exc_info)
 
 
+def test_int2int_from_ptr_fail_when_not_readonly(int2int_map):
+    with pytest.raises(RuntimeError) as exc_info:
+        addr = int2int_map.get_ptr()
+        Int2Int.from_ptr(addr)
+    assert "Instance must be read-only" in str(exc_info)
+
+
 def test_int2int_iter_when_empty(int2int_map):
     assert set(int2int_map) == set()
 

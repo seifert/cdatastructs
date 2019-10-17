@@ -617,14 +617,20 @@ static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
 
 static PyObject* Int2Int_from_ptr(PyObject *cls, PyObject *args) {
     Py_ssize_t addr;
+    Int2IntHashTable_t *other;
     Int2Int_t *int2int;
 
-    /* Parse arguments */
+    /* Parse argument */
     if (!PyArg_ParseTuple(args, "n", &addr)) {
         return NULL;
     }
 
-    // TODO: error if existing hashmap is not readonly
+    other = (Int2IntHashTable_t*) addr;
+    /* Check readonly flag */
+    if (!other->readonly) {
+        PyErr_SetString(PyExc_RuntimeError, "Instance must be read-only");
+        return NULL;
+    }
 
     /* Create new instance */
     int2int = (Int2Int_t*) PyObject_CallFunction(cls, "");
@@ -636,7 +642,7 @@ static PyObject* Int2Int_from_ptr(PyObject *cls, PyObject *args) {
     int2int->release_memory = false;
     PyMem_RawFree(int2int->hashmap);
     /* Point hashmap onto existing memory block */
-    int2int->hashmap = (Int2IntHashTable_t*) addr;
+    int2int->hashmap = other;
 
     return (PyObject*) int2int;
 }
