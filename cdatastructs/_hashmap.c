@@ -615,12 +615,12 @@ static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
     return PyLong_FromVoidPtr(self->hashmap);
 }
 
-static PyObject* Int2Int_from_ptr(PyObject *cls, PyObject *args) {
+static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     Py_ssize_t addr;
     Int2IntHashTable_t *other;
     Int2Int_t *int2int;
 
-    /* Parse argument */
+    /* Parse addr */
     if (!PyArg_ParseTuple(args, "n", &addr)) {
         return NULL;
     }
@@ -632,16 +632,13 @@ static PyObject* Int2Int_from_ptr(PyObject *cls, PyObject *args) {
         return NULL;
     }
 
-    /* Create new instance */
-    int2int = (Int2Int_t*) PyObject_CallFunction(cls, "");
-    if (NULL == int2int) {
+    /* Create instance */
+    int2int = (Int2Int_t*) cls->tp_alloc(cls, 0);
+    if (!int2int) {
         return NULL;
     }
-
-    /* Free hashmap memory */
+    int2int->default_value = NULL;
     int2int->release_memory = false;
-    PyMem_RawFree(int2int->hashmap);
-    /* Point hashmap onto existing memory block */
     int2int->hashmap = other;
 
     return (PyObject*) int2int;
