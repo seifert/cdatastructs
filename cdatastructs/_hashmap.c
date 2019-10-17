@@ -43,6 +43,7 @@ typedef struct {
     PyObject_HEAD
     Int2IntHashTable_t *hashmap;
     PyObject *default_value;
+    bool release_memory;
 } Int2Int_t;
 
 static PyTypeObject Int2Int_type;
@@ -143,6 +144,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     memset(int2int_memory, 0, int2int_memory_size);
 
     /* Initialize object attributes */
+    self->release_memory = true;
     self->default_value = default_value;
     self->hashmap = (Int2IntHashTable_t*) int2int_memory;
     self->hashmap->size = INT2INT_INITIAL_SIZE;
@@ -158,7 +160,9 @@ static void Int2Int_dealloc(Int2Int_t *self) {
     if (self->default_value != NULL) {
         Py_DECREF(self->default_value);
     }
-    PyMem_RawFree(self->hashmap);
+    if (self->release_memory && (NULL != self->hashmap)) {
+        PyMem_RawFree(self->hashmap);
+    }
     Py_TYPE(self)->tp_free((PyObject*) self);
 }
 
@@ -611,6 +615,32 @@ static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
     return PyLong_FromVoidPtr(self->hashmap);
 }
 
+static PyObject* Int2Int_from_ptr(PyObject *cls, PyObject *args) {
+    Py_ssize_t addr;
+    Int2Int_t *int2int;
+
+    /* Parse arguments */
+    if (!PyArg_ParseTuple(args, "n", &addr)) {
+        return NULL;
+    }
+
+    // TODO: error if existing hashmap is not readonly
+
+    /* Create new instance */
+    int2int = (Int2Int_t*) PyObject_CallFunction(cls, "");
+    if (NULL == int2int) {
+        return NULL;
+    }
+
+    /* Free hashmap memory */
+    int2int->release_memory = false;
+    PyMem_RawFree(int2int->hashmap);
+    /* Point hashmap onto existing memory block */
+    int2int->hashmap = (Int2IntHashTable_t*) addr;
+
+    return (PyObject*) int2int;
+}
+
 static PyObject* Int2Int_make_readonly(Int2Int_t *self) {
     self->hashmap->readonly = true;
     Py_RETURN_NONE;
@@ -675,6 +705,12 @@ static PyMethodDef Int2Int_methods[] = {
             "--\n"
             "\n"
             "Return pointer to internal Int2IntHashTable_t structure."},
+    {"from_ptr", (PyCFunction) Int2Int_from_ptr, METH_VARARGS | METH_CLASS,
+            "from_ptr(self, addr, /)\n"
+            "--\n"
+            "\n"
+            "Return instance created from address pointed to existing "
+            "Int2Int memory block."},
     {"make_readonly", (PyCFunction) Int2Int_make_readonly, METH_NOARGS,
             "make_readonly(self, /)\n"
             "--\n"

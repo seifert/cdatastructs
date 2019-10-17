@@ -349,19 +349,26 @@ def test_int2int_contains_fail_when_key_is_too_big(int2int_map):
 def test_int2int_get_ptr(int2int_map):
     int2int_map[1] = 100
 
-    class Int2IntHashTable_t(ctypes.Structure):
 
-        _fields_ = [
-            ('size', ctypes.c_size_t),
-            ('current_size', ctypes.c_size_t),
-            ('table_size', ctypes.c_size_t),
-            ('readonly', ctypes.c_bool),
-            ('table', ctypes.c_void_p),
-        ]
+def test_int2int_from_ptr(int2int_map):
+    int2int_map[1] = 101
+    int2int_map[2] = 102
 
-    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
-    assert t.size == 8
-    assert t.current_size == 1
+    int2int_map.make_readonly()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        int2int_map[3] = 103
+    assert "Instance is read-only" in str(exc_info)
+
+    addr = int2int_map.get_ptr()
+    int2int_new_map = Int2Int.from_ptr(addr)
+
+    assert int2int_new_map[1] == 101
+    assert int2int_new_map[2] == 102
+
+    with pytest.raises(RuntimeError) as exc_info:
+        int2int_new_map[3] = 103
+    assert "Instance is read-only" in str(exc_info)
 
 
 def test_int2int_iter_when_empty(int2int_map):
