@@ -95,6 +95,10 @@ static PyTypeObject Int2IntIterator_type = {
 
 /* Int2Int */
 
+static inline size_t Int2Int_memory_size(const size_t ncount) {
+    return sizeof(Int2IntHashTable_t) + (ncount * sizeof(Int2IntItem_t));
+}
+
 static PyObject* Int2Int_new(PyTypeObject *type,
         PyObject *args, PyObject *kwds) {
 
@@ -134,8 +138,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
        the beginning of block of the memory Int2IntHashTable_t structure
        is placed, followed by hashtable (array of Int2IntItem_t). */
     table_size = (INT2INT_INITIAL_SIZE * 1.2) + 1;
-    int2int_memory_size = sizeof(Int2IntHashTable_t) +
-            (table_size * sizeof(Int2IntItem_t));
+    int2int_memory_size = Int2Int_memory_size(table_size);
     int2int_memory = PyMem_RawMalloc(int2int_memory_size);
     if (!int2int_memory) {
         Py_TYPE(self)->tp_free((PyObject*) self);
@@ -322,8 +325,7 @@ static int Int2Int_resize_table(Int2Int_t *self) {
 
     new_size = self->hashmap->size * 2;
     new_table_size = (new_size * 1.2) + 1;
-    new_int2int_memory_size = sizeof(Int2IntHashTable_t) +
-            (new_table_size * sizeof(Int2IntItem_t));
+    new_int2int_memory_size = Int2Int_memory_size(new_table_size);
     new_int2int_memory = PyMem_RawMalloc(new_int2int_memory_size);
     if (!new_int2int_memory) {
         PyErr_NoMemory();
@@ -445,88 +447,115 @@ static PyObject* Int2Int_iter(Int2Int_t *self) {
 }
 
 static PyObject* Int2Int_reduce(Int2Int_t *self) {
-    PyObject *res = PyTuple_New(3);
-    PyObject *callable = PyObject_GetAttrString((PyObject *) self, "__class__");
-    PyObject *args = PyTuple_New(2);
-    PyObject *state = PyTuple_New(2);
+    PyObject *callable = NULL;
+    PyObject *args = NULL;
+    PyObject *state = NULL;
+    PyObject *data;
+    PyObject *res;
 
-    if ((res != NULL) && (callable != NULL) &&
-            (args != NULL) && (state != NULL)) {
-        /* state */
-        PyTuple_SET_ITEM(state, 0,
-                PyLong_FromSize_t(self->hashmap->current_size));
-        PyTuple_SET_ITEM(state, 1,
-                PyBytes_FromStringAndSize((const char *) self->hashmap->table,
-                        sizeof(Int2IntItem_t) * self->hashmap->table_size));
-        /* callable args */
-        PyTuple_SET_ITEM(args, 0, PyLong_FromSize_t(self->hashmap->size));  // TODO
-        if (self->default_value != NULL) {
-            Py_INCREF(self->default_value);
-            PyTuple_SET_ITEM(args, 1, self->default_value);
-        }
-        else {
-            Py_INCREF(Py_None);
-            PyTuple_SET_ITEM(args, 1, Py_None);
-        }
-        /* res */
-        PyTuple_SET_ITEM(res, 0, callable);
-        PyTuple_SET_ITEM(res, 1, args);
-        PyTuple_SET_ITEM(res, 2, state);
+    /* callable */
+    if (NULL == (callable = PyObject_GetAttrString(
+            (PyObject *) self, "__class__"))) {
+        goto cleanup;
+    }
+    /* args */
+    if (NULL == (args = PyTuple_New(0))) {
+        goto cleanup;
+    }
+    /* state */
+    if (NULL == (state = PyTuple_New(2))) {
+        goto cleanup;
+    }
+    /* state[0] - default */
+    if (self->default_value != NULL) {
+        Py_INCREF(self->default_value);
+        PyTuple_SET_ITEM(state, 0, self->default_value);
     }
     else {
-        Py_XDECREF(state);
-        Py_XDECREF(args);
-        Py_XDECREF(callable);
-        Py_CLEAR(res);
+        Py_INCREF(Py_None);
+        PyTuple_SET_ITEM(state, 0, Py_None);
     }
+    /* state[1] - data */
+    if (NULL == (data = PyBytes_FromStringAndSize(
+            (const char *) self->hashmap,
+            Int2Int_memory_size(self->hashmap->table_size)))) {
+        goto cleanup;
+    }
+    PyTuple_SET_ITEM(state, 1, data);
+
+    if (NULL == (res = PyTuple_New(3))) {
+        goto cleanup;
+    }
+    PyTuple_SET_ITEM(res, 0, callable);
+    PyTuple_SET_ITEM(res, 1, args);
+    PyTuple_SET_ITEM(res, 2, state);
 
     return res;
+
+cleanup:
+    Py_XDECREF(state);
+    Py_XDECREF(args);
+    Py_XDECREF(callable);
+
+    return NULL;
 }
 
 static PyObject* Int2Int_setstate(Int2Int_t *self, PyObject *args) {
     PyObject *res = NULL;
     PyObject *state;
-    PyObject *current_size;
-    PyObject *table;
-    size_t table_mem_size;
-    Py_buffer table_buffer = { .obj = NULL };
+    PyObject *default_value;
+    PyObject *data;
+    Py_buffer buffer = { .obj = NULL };
+    Int2IntHashTable_t *old_hashmap = self->hashmap;
+    void *hashmap;
 
     if (!PyArg_ParseTuple(args, "O", &state)) {
         goto cleanup;
     }
+
+    /* state */
     if (!PyTuple_Check(state)) {
+        PyErr_SetString(PyExc_TypeError, "'state' must be tuple");
+        goto cleanup;
+    }
+    /* state[0] - default value */
+    if ((NULL == (default_value = PyTuple_GetItem(state, 0))) ||
+            ((!PyLong_Check(default_value)) && (default_value != Py_None))) {
+        PyErr_SetString(PyExc_TypeError, "state[0] must be int or None");
+        goto cleanup;
+    }
+    /* state[1] - data */
+    if ((NULL == (data = PyTuple_GetItem(state, 1))) ||
+            (!PyBytes_Check(data))) {
+        PyErr_SetString(PyExc_TypeError, "state[1] must be bytes");
         goto cleanup;
     }
 
-    /* self->hashmap->current_size */
-    current_size = PyTuple_GetItem(state, 0);
-    if (current_size == NULL) {
+    /* Initialize new buffer, copy data and set attributes and
+       free old buffer */
+    if (PyObject_GetBuffer(data, &buffer, 0) == -1) {
         goto cleanup;
     }
-    self->hashmap->current_size = PyLong_AsSize_t(current_size);
-    if (self->hashmap->current_size == (size_t) -1) {
+    if (NULL == (hashmap = PyMem_RawMalloc(buffer.len))) {
+        PyErr_NoMemory();
         goto cleanup;
+    }
+    memcpy((void *) hashmap, buffer.buf, buffer.len);
+    self->hashmap = hashmap;
+    self->hashmap->table = hashmap + sizeof(Int2IntHashTable_t);
+    PyMem_RawFree(old_hashmap);
+
+    /* Set default value */
+    if (default_value != Py_None) {
+        self->default_value = default_value;
+        Py_INCREF(self->default_value);
     }
 
-    /* self->hashmap->table */
-    table = PyTuple_GetItem(state, 1);
-    if ((table == NULL) || (!PyBytes_Check(table))) {
-        goto cleanup;
-    }
-    if (PyObject_GetBuffer(table, &table_buffer, 0) == -1) {
-        goto cleanup;
-    }
-    table_mem_size = PyBytes_Size(table);
-    if (table_mem_size != (self->hashmap->table_size * sizeof(Int2IntItem_t))) {
-        PyErr_SetString(PyExc_RuntimeError, "Invalid pickled state");
-        goto cleanup;
-    }
-    memcpy((void *) self->hashmap->table, table_buffer.buf, table_mem_size);
     res = Py_None;
 
 cleanup:
-    if (table_buffer.obj != NULL) {
-        PyBuffer_Release(&table_buffer);
+    if (buffer.obj != NULL) {
+        PyBuffer_Release(&buffer);
     }
 
     Py_XINCREF(res);
@@ -616,7 +645,7 @@ static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
 }
 
 static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
-    Py_ssize_t addr;
+    const Py_ssize_t addr;
     Int2IntHashTable_t *other;
     Int2Int_t *int2int;
 
