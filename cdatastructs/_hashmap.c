@@ -108,7 +108,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     Int2Int_t *self;
     size_t table_size;
     size_t int2int_memory_size;
-    void *int2int_memory;
+    Int2IntHashTable_t *int2int_memory;
 
     /* Parse arguments */
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$O", kwnames,
@@ -150,12 +150,12 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     /* Initialize object attributes */
     self->release_memory = true;
     self->default_value = default_value;
-    self->hashmap = (Int2IntHashTable_t*) int2int_memory;
+    self->hashmap = int2int_memory;
     self->hashmap->size = INT2INT_INITIAL_SIZE;
     self->hashmap->current_size = 0;
     self->hashmap->table_size = table_size;
     self->hashmap->readonly = false;
-    self->hashmap->table = int2int_memory + sizeof(Int2IntHashTable_t);
+    self->hashmap->table = (void*) int2int_memory + sizeof(Int2IntHashTable_t);
 
     return (PyObject*) self;
 }
@@ -293,7 +293,7 @@ static PyObject* Int2Int_richcompare(Int2Int_t *self, PyObject *other, int op) {
     return res;
 }
 
-int Int2Int_contains(Int2Int_t *self, PyObject *key) {
+static int Int2Int_contains(Int2Int_t *self, PyObject *key) {
     unsigned long long c_key;
 
     if (!PyLong_Check(key)) {
@@ -311,8 +311,7 @@ int Int2Int_contains(Int2Int_t *self, PyObject *key) {
 static int Int2Int_resize_table(Int2Int_t *self) {
     size_t new_size;
     size_t new_table_size;
-    size_t new_int2int_memory_size;
-    void *new_int2int_memory;
+    size_t new_memory_size;
     Int2IntHashTable_t *new_hashmap;
     Int2IntItem_t item;
 
@@ -326,20 +325,19 @@ static int Int2Int_resize_table(Int2Int_t *self) {
 
     new_size = self->hashmap->size * 2;
     new_table_size = (new_size * 1.2) + 1;
-    new_int2int_memory_size = Int2Int_memory_size(new_table_size);
-    new_int2int_memory = PyMem_RawMalloc(new_int2int_memory_size);
-    if (!new_int2int_memory) {
+    new_memory_size = Int2Int_memory_size(new_table_size);
+    new_hashmap = PyMem_RawMalloc(new_memory_size);
+    if (!new_hashmap) {
         PyErr_NoMemory();
         return -1;
     }
-    memset(new_int2int_memory, 0, new_int2int_memory_size);
+    memset(new_hashmap, 0, new_memory_size);
 
-    new_hashmap = (Int2IntHashTable_t*) new_int2int_memory;
     new_hashmap->size = new_size;
     new_hashmap->current_size = 0;
     new_hashmap->table_size = new_table_size;
     new_hashmap->readonly = false;
-    new_hashmap->table = new_int2int_memory + sizeof(Int2IntHashTable_t);
+    new_hashmap->table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
 
     for (size_t i=0; i<self->hashmap->table_size; ++i) {
         item = self->hashmap->table[i];
@@ -641,7 +639,7 @@ static PyObject* Int2Int_items(Int2Int_t *self) {
     return (PyObject*) iterator;
 }
 
-static PyObject* Int2Int_get_ptr(Int2Int_t *self) {
+static PyObject* Int2Int_get_ptr(Int2Int_t *self, PyObject *args) {
     return PyLong_FromVoidPtr(self->hashmap);
 }
 
@@ -789,7 +787,7 @@ static PyTypeObject Int2Int_type = {
     0,                                                  /* tp_setattro */
     0,                                                  /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags */
-    "Int2Int(self, default=None, /)\n"                    /* tp_doc */
+    "Int2Int(self, default=None, /)\n"                  /* tp_doc */
     "--\n"
     "\n"
     "Simple fixed-size hashmap which maps int key "
