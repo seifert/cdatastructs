@@ -16,10 +16,15 @@ def int2int_map():
     return Int2Int()
 
 
-def test_int2int_new_fail_when_invalid_default_kwarg():
-    with pytest.raises(TypeError) as exc_info:
+def test_int2int_new_fail_when_invalid_default_kwarg_type():
+    with pytest.raises(TypeError, match="'default' must be positive int"):
         Int2Int(default='8')
-    assert "'default' must be an integer" in str(exc_info)
+
+
+def test_int2int_new_fail_when_negative_default_kwarg():
+    with pytest.raises(
+            OverflowError, match="can't convert negative value to size_t"):
+        Int2Int(default=-1)
 
 
 def test_int2int_len_when_empty(int2int_map):
@@ -303,7 +308,7 @@ def test_int2int_get_fail_when_invalid_default_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get(1, '1')
     exc_msg = str(exc_info)
-    assert "'default' must be an integer" in exc_msg
+    assert "'default' must be positive int" in exc_msg
 
 
 def test_int2int_get_fail_when_negative_default(int2int_map):

@@ -104,7 +104,7 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
 
     char *kwnames[] = {"default", NULL};
-    PyObject *default_value = NULL;
+    PyObject *default_value = Py_None;
     Int2Int_t *self;
     size_t table_size;
     size_t int2int_memory_size;
@@ -114,17 +114,15 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
             &default_value)) {
         return NULL;
     }
-    if (default_value != NULL) {
-        if (default_value == Py_None) {
-            default_value = NULL;
+    if (default_value != Py_None) {
+        if (!PyLong_Check(default_value)) {
+            PyErr_SetString(PyExc_TypeError,
+                    "'default' must be positive int");
+            return NULL;
         }
-        else {
-            if (!PyLong_Check(default_value)) {
-                PyErr_SetString(PyExc_TypeError,
-                        "'default' must be an integer");
-                return NULL;
-            }
-            Py_INCREF(default_value);
+        if ((PyLong_AsSize_t(default_value) == (size_t) -1)
+                && PyErr_Occurred()) {
+            return NULL;
         }
     }
 
@@ -153,13 +151,12 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
     self->hashmap->readonly = false;
     self->hashmap->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
 
+    Py_INCREF(self->default_value);
     return (PyObject*) self;
 }
 
 static void Int2Int_dealloc(Int2Int_t *self) {
-    if (self->default_value != NULL) {
-        Py_DECREF(self->default_value);
-    }
+    Py_DECREF(self->default_value);
     if (self->release_memory && (NULL != self->hashmap)) {
         PyMem_RawFree(self->hashmap);
     }
@@ -172,16 +169,16 @@ static PyObject* Int2Int_repr(Int2Int_t *self) {
                 self->ob_base.ob_type->tp_name, self,
                 self->hashmap->current_size);
     } else {
-        if (self->default_value != NULL) {
-            return PyUnicode_FromFormat(
-                    "<%s: object at %p, used %zd, default %A>",
-                    self->ob_base.ob_type->tp_name, self,
-                    self->hashmap->current_size, self->default_value);
-        } else {
+        if (self->default_value == Py_None) {
             return PyUnicode_FromFormat(
                     "<%s: object at %p, used %zd>",
                     self->ob_base.ob_type->tp_name, self,
                     self->hashmap->current_size);
+        } else {
+            return PyUnicode_FromFormat(
+                    "<%s: object at %p, used %zd, default %A>",
+                    self->ob_base.ob_type->tp_name, self,
+                    self->hashmap->current_size, self->default_value);
         }
     }
 }
@@ -406,14 +403,14 @@ static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
         return NULL;
     }
     c_key = PyLong_AsUnsignedLongLong(key);
-    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+    if ((c_key == (unsigned long long) -1) && (NULL != PyErr_Occurred())) {
         return NULL;
     }
 
     if (int2int_get(self->hashmap, c_key, &c_value) == -1) {
-        if (self->default_value != NULL) {
+        if (self->default_value != Py_None) {
             c_value = PyLong_AsSize_t(self->default_value);
-            if ((c_value == (size_t) -1) && (PyErr_Occurred() != NULL)) {
+            if ((c_value == (size_t) -1) && (NULL != PyErr_Occurred())) {
                 return NULL;
             }
             if (Int2Int_resize_table(self) == -1) {
@@ -466,14 +463,8 @@ static PyObject* Int2Int_reduce(Int2Int_t *self) {
         goto cleanup;
     }
     /* state[0] - default */
-    if (self->default_value != NULL) {
-        Py_INCREF(self->default_value);
-        PyTuple_SET_ITEM(state, 0, self->default_value);
-    }
-    else {
-        Py_INCREF(Py_None);
-        PyTuple_SET_ITEM(state, 0, Py_None);
-    }
+    Py_INCREF(self->default_value);
+    PyTuple_SET_ITEM(state, 0, self->default_value);
     /* state[1] - data */
     if (NULL == (data = PyBytes_FromStringAndSize(
             (const char *) self->hashmap,
@@ -564,15 +555,15 @@ cleanup:
 static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
     char *kwnames[] = {"key", "default", NULL};
     PyObject * key;
-    PyObject * default_value = NULL;
+    PyObject * default_value = Py_None;
     unsigned long long c_key;
-    size_t c_default_value;
+    size_t value;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwnames,
             &key, &default_value)) {
         return NULL;
     }
-
+    /* key argument */
     if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
         return NULL;
@@ -582,25 +573,24 @@ static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
         return NULL;
     }
 
-    if (int2int_get(self->hashmap, c_key, &c_default_value) == -1) {
-        if (default_value == NULL) {
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-        if (!PyLong_Check(default_value)) {
-            PyErr_SetString(PyExc_TypeError, "'default' must be an integer");
-            return NULL;
-        }
-        c_default_value = PyLong_AsSize_t(default_value);
-        if ((c_default_value == (size_t) -1) && (PyErr_Occurred() != NULL)) {
-            return NULL;
+    if (int2int_get(self->hashmap, c_key, &value) == -1) {
+        if (default_value != Py_None) {
+            if (!PyLong_Check(default_value)) {
+                PyErr_SetString(PyExc_TypeError,
+                        "'default' must be positive int");
+                return NULL;
+            }
+            if ((PyLong_AsSize_t(default_value) == (size_t) -1)
+                    && PyErr_Occurred()) {
+                return NULL;
+            }
         }
 
         Py_INCREF(default_value);
         return default_value;
     }
 
-    return PyLong_FromSize_t(c_default_value);
+    return PyLong_FromSize_t(value);
 }
 
 static PyObject* Int2Int_keys(Int2Int_t *self) {
@@ -665,10 +655,11 @@ static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     if (!self) {
         return NULL;
     }
-    self->default_value = NULL;
+    self->default_value = Py_None;
     self->release_memory = false;
     self->hashmap = other;
 
+    Py_INCREF(self->default_value);
     return (PyObject*) self;
 }
 
