@@ -200,15 +200,19 @@ static PyObject* Int2Int_richcompare(Int2Int_t *self, PyObject *other, int op) {
     case Py_LT:
         PyErr_SetString(PyExc_TypeError, "'<' is not supported");
         res = NULL;
+        break;
     case Py_LE:
         PyErr_SetString(PyExc_TypeError, "'<=' is not supported");
         res = NULL;
+        break;
     case Py_GT:
         PyErr_SetString(PyExc_TypeError, "'>' is not supported");
         res = NULL;
+        break;
     case Py_GE:
         PyErr_SetString(PyExc_TypeError, "'>=' is not supported");
         res = NULL;
+        break;
     case Py_EQ:
     case Py_NE:
         break;
