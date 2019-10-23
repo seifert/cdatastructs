@@ -108,7 +108,6 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     Int2Int_t *self;
     size_t table_size;
     size_t int2int_memory_size;
-    Int2IntHashTable_t *int2int_memory;
 
     /* Parse arguments */
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$O", kwnames,
@@ -140,22 +139,21 @@ static PyObject* Int2Int_new(PyTypeObject *type,
        is placed, followed by hashtable (array of Int2IntItem_t). */
     table_size = (INT2INT_INITIAL_SIZE * 1.2) + 1;
     int2int_memory_size = Int2Int_memory_size(table_size);
-    int2int_memory = PyMem_RawMalloc(int2int_memory_size);
-    if (!int2int_memory) {
+    self->hashmap = PyMem_RawMalloc(int2int_memory_size);
+    if (!self->hashmap) {
         Py_TYPE(self)->tp_free((PyObject*) self);
         return PyErr_NoMemory();
     }
-    memset(int2int_memory, 0, int2int_memory_size);
+    memset(self->hashmap, 0, int2int_memory_size);
 
     /* Initialize object attributes */
     self->release_memory = true;
     self->default_value = default_value;
-    self->hashmap = int2int_memory;
     self->hashmap->size = INT2INT_INITIAL_SIZE;
     self->hashmap->current_size = 0;
     self->hashmap->table_size = table_size;
     self->hashmap->readonly = false;
-    self->hashmap->table = (void*) int2int_memory + sizeof(Int2IntHashTable_t);
+    self->hashmap->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
 
     return (PyObject*) self;
 }
@@ -646,7 +644,7 @@ static PyObject* Int2Int_get_ptr(Int2Int_t *self, PyObject *args) {
 static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     const Py_ssize_t addr;
     Int2IntHashTable_t *other;
-    Int2Int_t *int2int;
+    Int2Int_t *self;
 
     /* Parse addr */
     if (!PyArg_ParseTuple(args, "n", &addr)) {
@@ -661,15 +659,15 @@ static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     }
 
     /* Create instance */
-    int2int = (Int2Int_t*) cls->tp_alloc(cls, 0);
-    if (!int2int) {
+    self = (Int2Int_t*) cls->tp_alloc(cls, 0);
+    if (!self) {
         return NULL;
     }
-    int2int->default_value = NULL;
-    int2int->release_memory = false;
-    int2int->hashmap = other;
+    self->default_value = NULL;
+    self->release_memory = false;
+    self->hashmap = other;
 
-    return (PyObject*) int2int;
+    return (PyObject*) self;
 }
 
 static PyObject* Int2Int_make_readonly(Int2Int_t *self) {
