@@ -100,7 +100,7 @@ static inline size_t Int2Int_memory_size(const size_t ncount) {
     return sizeof(Int2IntHashTable_t) + (ncount * sizeof(Int2IntItem_t));
 }
 
-static PyObject* Int2Int_new(PyTypeObject *type,
+static PyObject* Int2Int_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
 
     char *kwnames[] = {"default", NULL};
@@ -129,8 +129,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
     }
 
     /* Create instance */
-    self = (Int2Int_t*) type->tp_alloc(type, 0);
-    if (!self) {
+    if (NULL == (self = (Int2Int_t*) cls->tp_alloc(cls, 0))) {
         return NULL;
     }
 
@@ -139,8 +138,7 @@ static PyObject* Int2Int_new(PyTypeObject *type,
        is placed, followed by hashtable (array of Int2IntItem_t). */
     table_size = (INT2INT_INITIAL_SIZE * 1.2) + 1;
     int2int_memory_size = Int2Int_memory_size(table_size);
-    self->hashmap = PyMem_RawMalloc(int2int_memory_size);
-    if (!self->hashmap) {
+    if (NULL == (self->hashmap = PyMem_RawMalloc(int2int_memory_size))) {
         Py_TYPE(self)->tp_free((PyObject*) self);
         return PyErr_NoMemory();
     }
