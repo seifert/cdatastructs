@@ -500,6 +500,21 @@ def test_int2int_eq_fail_when_invalid_operator(int2int_map, op):
     assert 'is not supported' in str(exc_info)
 
 
+@pytest.mark.parametrize(
+    'args, exc, msg',
+    [
+        [(-1, 8, 0, 10, False, b'\0'*24*10), TypeError, "'default' must be"],
+        [('1', 8, 0, 10, False, b'\0'*24*10), TypeError, "'default' must be"],
+        [(None, 8, 9, 10, False, b'\0'*24*10), ValueError, "Inconsistent"],
+        [(None, 11, 0, 10, False, b'\0'*24*10), ValueError, "Inconsistent"],
+        [(None, 8, 0, 10, False, b'\0'*24*9), ValueError, "Inconsistent"],
+        [(None, 8, 0, 10, False, b'\0'*24*11), ValueError, "Inconsistent"],
+    ])
+def test_int2int_from_raw_data_fail_when_inconsistent_args(args, exc, msg):
+    with pytest.raises(exc, match=msg):
+        Int2Int._from_raw_data(*args)
+
+
 def test_int2int_pickle_dumps_loads(int2int_map):
     for i in (1, 2, 3, 4, 5, 6):
         int2int_map[i] = 100 + i
@@ -530,7 +545,6 @@ def test_int2int_pickle_dumps_loads_when_default():
     assert new == int2int_map
     assert set(new.keys()) == {1, 2, 3, 4, 5, 6}
     assert set(new.values()) == {101, 102, 103, 104, 105, 0}
-
 
 def test_int2int_readonly_flag_is_false(int2int_map):
     assert int2int_map.readonly is False

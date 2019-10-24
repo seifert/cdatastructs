@@ -442,116 +442,6 @@ static PyObject* Int2Int_iter(Int2Int_t *self) {
     return (PyObject*) iterator;
 }
 
-static PyObject* Int2Int_reduce(Int2Int_t *self) {
-    PyObject *callable = NULL;
-    PyObject *args = NULL;
-    PyObject *state = NULL;
-    PyObject *data;
-    PyObject *res;
-
-    /* callable */
-    if (NULL == (callable = PyObject_GetAttrString(
-            (PyObject *) self, "__class__"))) {
-        goto cleanup;
-    }
-    /* args */
-    if (NULL == (args = PyTuple_New(0))) {
-        goto cleanup;
-    }
-    /* state */
-    if (NULL == (state = PyTuple_New(2))) {
-        goto cleanup;
-    }
-    /* state[0] - default */
-    Py_INCREF(self->default_value);
-    PyTuple_SET_ITEM(state, 0, self->default_value);
-    /* state[1] - data */
-    if (NULL == (data = PyBytes_FromStringAndSize(
-            (const char *) self->hashmap,
-            Int2Int_memory_size(self->hashmap->table_size)))) {
-        goto cleanup;
-    }
-    PyTuple_SET_ITEM(state, 1, data);
-
-    if (NULL == (res = PyTuple_New(3))) {
-        goto cleanup;
-    }
-    PyTuple_SET_ITEM(res, 0, callable);
-    PyTuple_SET_ITEM(res, 1, args);
-    PyTuple_SET_ITEM(res, 2, state);
-
-    return res;
-
-cleanup:
-    Py_XDECREF(state);
-    Py_XDECREF(args);
-    Py_XDECREF(callable);
-
-    return NULL;
-}
-
-static PyObject* Int2Int_setstate(Int2Int_t *self, PyObject *args) {
-    PyObject *res = NULL;
-    PyObject *state;
-    PyObject *default_value;
-    PyObject *data;
-    Py_buffer buffer = { .obj = NULL };
-    Int2IntHashTable_t *old_hashmap = self->hashmap;
-    void *hashmap;
-
-    if (!PyArg_ParseTuple(args, "O", &state)) {
-        goto cleanup;
-    }
-
-    /* state */
-    if (!PyTuple_Check(state)) {
-        PyErr_SetString(PyExc_TypeError, "'state' must be tuple");
-        goto cleanup;
-    }
-    /* state[0] - default value */
-    if ((NULL == (default_value = PyTuple_GetItem(state, 0))) ||
-            ((!PyLong_Check(default_value)) && (default_value != Py_None))) {
-        PyErr_SetString(PyExc_TypeError, "state[0] must be int or None");
-        goto cleanup;
-    }
-    /* state[1] - data */
-    if ((NULL == (data = PyTuple_GetItem(state, 1))) ||
-            (!PyBytes_Check(data))) {
-        PyErr_SetString(PyExc_TypeError, "state[1] must be bytes");
-        goto cleanup;
-    }
-
-    /* Initialize new buffer, copy data and set attributes and
-       free old buffer */
-    if (PyObject_GetBuffer(data, &buffer, 0) == -1) {
-        goto cleanup;
-    }
-    if (NULL == (hashmap = PyMem_RawMalloc(buffer.len))) {
-        PyErr_NoMemory();
-        goto cleanup;
-    }
-    memcpy((void *) hashmap, buffer.buf, buffer.len);
-    self->hashmap = hashmap;
-    self->hashmap->table = hashmap + sizeof(Int2IntHashTable_t);
-    PyMem_RawFree(old_hashmap);
-
-    /* Set default value */
-    if (default_value != Py_None) {
-        self->default_value = default_value;
-        Py_INCREF(self->default_value);
-    }
-
-    res = Py_None;
-
-cleanup:
-    if (buffer.obj != NULL) {
-        PyBuffer_Release(&buffer);
-    }
-
-    Py_XINCREF(res);
-    return res;
-}
-
 static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
     char *kwnames[] = {"key", "default", NULL};
     PyObject * key;
@@ -627,6 +517,124 @@ static PyObject* Int2Int_items(Int2Int_t *self) {
         iterator->obj = (PyObject*) self;
     }
     return (PyObject*) iterator;
+}
+
+static PyObject* Int2Int_reduce(Int2Int_t *self) {
+    PyObject *res = NULL;
+    PyObject *args = NULL;
+    PyObject *callable = NULL;
+    PyObject *readonly;
+    PyObject *data;
+
+    if (NULL == (res = PyTuple_New(2))) {
+        goto error;
+    }
+    if (NULL == (args = PyTuple_New(6))) {
+        goto error;
+    }
+    if (NULL == (callable = PyObject_GetAttrString(
+            (PyObject *) self, "_from_raw_data"))) {
+        goto error;
+    }
+
+    readonly = self->hashmap->readonly ? Py_True : Py_False;
+    if (NULL == (data = PyBytes_FromStringAndSize(
+            (const char *) self->hashmap->table,
+            self->hashmap->table_size * sizeof(Int2IntItem_t)))) {
+        goto error;
+    }
+
+    Py_INCREF(self->default_value);
+    Py_INCREF(readonly);
+
+    PyTuple_SET_ITEM(args, 0, self->default_value);
+    PyTuple_SET_ITEM(args, 1, PyLong_FromSize_t(self->hashmap->size));
+    PyTuple_SET_ITEM(args, 2, PyLong_FromSize_t(self->hashmap->current_size));
+    PyTuple_SET_ITEM(args, 3, PyLong_FromSize_t(self->hashmap->table_size));
+    PyTuple_SET_ITEM(args, 4, readonly);
+    PyTuple_SET_ITEM(args, 5, data);
+
+    PyTuple_SET_ITEM(res, 0, callable);
+    PyTuple_SET_ITEM(res, 1, args);
+
+    return res;
+
+error:
+    Py_XDECREF(res);
+    Py_XDECREF(args);
+    Py_XDECREF(callable);
+
+    return NULL;
+}
+
+static PyObject* Int2Int_from_raw_data(PyTypeObject *cls, PyObject *args) {
+    PyObject *default_value = Py_None;
+    size_t size;
+    size_t current_size;
+    size_t table_size;
+    int readonly;
+    Py_buffer buffer = { .obj = NULL };
+    size_t int2int_memory_size;
+    Int2Int_t *self = NULL;
+    PyObject *res = NULL;
+
+    /* Parse arguments */
+    if (!PyArg_ParseTuple(args, "Onnnpy*", &default_value, &size,
+            &current_size, &table_size, &readonly, &buffer)) {
+        goto error;
+    }
+    /* Validate arguments */
+    if ((default_value != Py_None)
+            && (!PyLong_Check(default_value) ||
+                    ((PyLong_AsSize_t(default_value) == (size_t) -1)
+                            && PyErr_Occurred()))) {
+        PyErr_SetString(PyExc_TypeError, "'default' must be positive int");
+        goto error;
+    }
+    if ((size < current_size) || (table_size < size)
+            || ((size_t) buffer.len != (table_size * sizeof(Int2IntItem_t)))) {
+        PyErr_SetString(PyExc_ValueError, "Inconsistent argument's values");
+        goto error;
+    }
+
+    /* Create instance */
+    if (NULL == (self = (Int2Int_t*) cls->tp_alloc(cls, 0))) {
+        goto error;
+    }
+
+    /* Allocate memory for Int2IntHashTable_t structure and hashtable. At
+       the beginning of block of the memory Int2IntHashTable_t structure
+       is placed, followed by hashtable (array of Int2IntItem_t). */
+    int2int_memory_size = Int2Int_memory_size(table_size);
+    if (NULL == (self->hashmap = PyMem_RawMalloc(int2int_memory_size))) {
+        PyErr_NoMemory();
+        goto error;
+    }
+    memset(self->hashmap, 0, int2int_memory_size);
+
+    self->release_memory = true;
+    self->default_value = default_value;
+    self->hashmap->size = size;
+    self->hashmap->current_size = current_size;
+    self->hashmap->table_size = table_size;
+    self->hashmap->readonly = readonly;
+    self->hashmap->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
+    memcpy((void *) self->hashmap->table, buffer.buf, buffer.len);
+
+    Py_INCREF(self->default_value);
+    res = (PyObject*) self;
+    goto cleanup;
+
+error:
+    if (NULL != self) {
+        cls->tp_free((PyObject*) self);
+    }
+cleanup:
+    if (NULL != buffer.obj) {
+        PyBuffer_Release(&buffer);
+    }
+
+    return res;
 }
 
 static PyObject* Int2Int_get_ptr(Int2Int_t *self, PyObject *args) {
@@ -739,15 +747,19 @@ static PyMethodDef Int2Int_methods[] = {
             "\n"
             "Make Int2Int structure as a read-only."},
     {"__reduce__", (PyCFunction) Int2Int_reduce, METH_NOARGS,
-            "__setstate__(self, /)\n"
+            "__reduce__(self, /)\n"
             "--\n"
             "\n"
-            "Return state information for pickling."},
-    {"__setstate__", (PyCFunction) Int2Int_setstate, METH_VARARGS,
-            "__setstate__(self, state, /)\n"
+            "Return reduce value of the instance."},
+    {"_from_raw_data", (PyCFunction) Int2Int_from_raw_data,
+            METH_VARARGS | METH_CLASS,
+            "_from_raw_data(self, ..., /)\n"
             "--\n"
             "\n"
-            "Restore object state when unpickling."},
+            "Return instance created from raw data.\n"
+            "\n"
+            "It is protected method used when object is unpickled, do not "
+            "call this method yourself!"},
     {NULL}
 };
 
