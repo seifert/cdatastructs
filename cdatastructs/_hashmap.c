@@ -43,6 +43,7 @@ static PyObject* HashmapIterator_iter(PyObject *self) {
 typedef struct {
     PyObject_HEAD
     Int2IntHashTable_t *hashmap;
+    Int2IntItem_t *table;
     PyObject *default_value;
     bool release_memory;
 } Int2Int_t;
@@ -58,7 +59,7 @@ static PyObject* Int2IntIterator_next(HashmapIterator_t *self) {
     PyObject *res = NULL;
 
     while (self->current_position < obj->hashmap->table_size) {
-        Int2IntItem_t item = obj->hashmap->table[self->current_position];
+        Int2IntItem_t item = obj->table[self->current_position];
         if (item.status == USED) {
             switch (self->iterator_type) {
             case KEYS:
@@ -146,7 +147,7 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
     self->hashmap->current_size = 0;
     self->hashmap->table_size = table_size;
     self->hashmap->readonly = false;
-    self->hashmap->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
+    self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
 
     Py_INCREF(self->default_value);
     return (PyObject*) self;
@@ -224,7 +225,7 @@ static PyObject* Int2Int_richcompare(Int2Int_t *self, PyObject *other, int op) {
             if (other_length == (Py_ssize_t) self->hashmap->current_size) {
                 res = Py_True;
                 for (size_t i = 0; i < self->hashmap->table_size; ++i) {
-                    Int2IntItem_t item = self->hashmap->table[i];
+                    Int2IntItem_t item = self->table[i];
 
                     if (item.status == USED) {
                         PyObject *key = NULL;
@@ -314,6 +315,7 @@ static int Int2Int_resize_table(Int2Int_t *self) {
     size_t new_table_size;
     size_t new_memory_size;
     Int2IntHashTable_t *new_hashmap;
+    Int2IntItem_t *new_table;
     Int2IntItem_t item;
 
     if (self->hashmap->readonly) {
@@ -338,10 +340,10 @@ static int Int2Int_resize_table(Int2Int_t *self) {
     new_hashmap->current_size = 0;
     new_hashmap->table_size = new_table_size;
     new_hashmap->readonly = false;
-    new_hashmap->table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
+    new_table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
 
     for (size_t i=0; i<self->hashmap->table_size; ++i) {
-        item = self->hashmap->table[i];
+        item = self->table[i];
         if (item.status == USED) {
             if (int2int_set(new_hashmap, item.key, item.value) == -1) {
                 PyMem_RawFree(new_hashmap);
@@ -353,6 +355,7 @@ static int Int2Int_resize_table(Int2Int_t *self) {
 
     PyMem_RawFree(self->hashmap);
     self->hashmap = new_hashmap;
+    self->table = new_table;
 
     return 0;
 }
@@ -543,7 +546,7 @@ static PyObject* Int2Int_reduce(Int2Int_t *self) {
 
     readonly = self->hashmap->readonly ? Py_True : Py_False;
     if (NULL == (data = PyBytes_FromStringAndSize(
-            (const char *) self->hashmap->table,
+            (const char *) self->table,
             self->hashmap->table_size * sizeof(Int2IntItem_t)))) {
         goto error;
     }
@@ -622,8 +625,8 @@ static PyObject* Int2Int_from_raw_data(PyTypeObject *cls, PyObject *args) {
     self->hashmap->current_size = current_size;
     self->hashmap->table_size = table_size;
     self->hashmap->readonly = readonly;
-    self->hashmap->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
-    memcpy((void *) self->hashmap->table, buffer.buf, buffer.len);
+    self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
+    memcpy((void *) self->table, buffer.buf, buffer.len);
 
     Py_INCREF(self->default_value);
     res = (PyObject*) self;
@@ -639,10 +642,6 @@ cleanup:
     }
 
     return res;
-}
-
-static PyObject* Int2Int_get_ptr(Int2Int_t *self, PyObject *args) {
-    return PyLong_FromVoidPtr(self->hashmap);
 }
 
 static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
@@ -670,6 +669,7 @@ static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     self->default_value = Py_None;
     self->release_memory = false;
     self->hashmap = other;
+    self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
 
     Py_INCREF(self->default_value);
     return (PyObject*) self;
@@ -687,6 +687,14 @@ static PyObject* Int2Int_get_readonly(Int2Int_t *self) {
     else {
         Py_RETURN_FALSE;
     }
+}
+
+static PyObject* Int2Int_get_buffer_ptr(Int2Int_t *self) {
+    return PyLong_FromVoidPtr(self->hashmap);
+}
+
+static PyObject* Int2Int_get_buffer_size(Int2Int_t *self) {
+    return PyLong_FromSize_t(Int2Int_memory_size(self->hashmap->table_size));
 }
 
 static PySequenceMethods Int2Int_sequence_methods = {
@@ -734,11 +742,6 @@ static PyMethodDef Int2Int_methods[] = {
             "Return an iterator over the hashmaps’s (key, value) tuple\n"
             "pairs. Don't change hashmap during iteration, behavior is\n"
             "undefined!"},
-    {"get_ptr", (PyCFunction) Int2Int_get_ptr, METH_NOARGS,
-            "get_ptr(self, /)\n"
-            "--\n"
-            "\n"
-            "Return pointer to internal Int2IntHashTable_t structure."},
     {"from_ptr", (PyCFunction) Int2Int_from_ptr, METH_VARARGS | METH_CLASS,
             "from_ptr(self, addr, /)\n"
             "--\n"
@@ -770,6 +773,10 @@ static PyMethodDef Int2Int_methods[] = {
 static PyGetSetDef Int2Int_getset[] = {
     {"readonly", (getter) Int2Int_get_readonly, NULL,
             "Flag that indicates that instance is read-only\n", NULL},
+    {"buffer_ptr", (getter) Int2Int_get_buffer_ptr, NULL,
+            "Address to internal buffer.", NULL},
+    {"buffer_size", (getter) Int2Int_get_buffer_size, NULL,
+            "Size of the internal buffer in bytes.", NULL},
     {NULL}
 };
 

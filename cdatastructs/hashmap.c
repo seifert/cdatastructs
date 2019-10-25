@@ -15,11 +15,12 @@ static inline size_t int2int_hash(const unsigned long long key,
 int int2int_set(Int2IntHashTable_t * const ctx,
         const unsigned long long key, const size_t value) {
 
+    Int2IntItem_t *table = (void*) ctx + sizeof(Int2IntHashTable_t);
     size_t idx = int2int_hash(key, ctx->table_size);
 
-    while (ctx->table[idx].status == USED) {
-        if (ctx->table[idx].key == key) {
-            ctx->table[idx].value = value;
+    while (table[idx].status == USED) {
+        if (table[idx].key == key) {
+            table[idx].value = value;
             return 0;
         }
         idx = (idx + 1) % ctx->table_size;
@@ -27,9 +28,9 @@ int int2int_set(Int2IntHashTable_t * const ctx,
     if (ctx->current_size == ctx->size) {
         return -1;
     }
-    ctx->table[idx].status = USED;
-    ctx->table[idx].key = key;
-    ctx->table[idx].value = value;
+    table[idx].status = USED;
+    table[idx].key = key;
+    table[idx].value = value;
     ctx->current_size += 1;
     return 0;
 }
@@ -49,11 +50,12 @@ int int2int_get(const Int2IntHashTable_t * const ctx,
 size_t * int2int_get_ptr(const Int2IntHashTable_t * const ctx,
         const unsigned long long key) {
 
+    Int2IntItem_t *table = (void*) ctx + sizeof(Int2IntHashTable_t);
     size_t idx = int2int_hash(key, ctx->table_size);
 
-    while (ctx->table[idx].status == USED) {
-        if (ctx->table[idx].key == key) {
-            return &(ctx->table[idx].value);
+    while (table[idx].status == USED) {
+        if (table[idx].key == key) {
+            return &(table[idx].value);
         }
         idx = (idx + 1) % ctx->table_size;
     }
@@ -63,10 +65,11 @@ size_t * int2int_get_ptr(const Int2IntHashTable_t * const ctx,
 int int2int_has(const Int2IntHashTable_t * const ctx,
         const unsigned long long key) {
 
+    Int2IntItem_t *table = (void*) ctx + sizeof(Int2IntHashTable_t);
     size_t idx = int2int_hash(key, ctx->table_size);
 
-    while (ctx->table[idx].status == USED) {
-        if (ctx->table[idx].key == key) {
+    while (table[idx].status == USED) {
+        if (table[idx].key == key) {
             return 1;
         }
         idx = (idx + 1) % ctx->table_size;

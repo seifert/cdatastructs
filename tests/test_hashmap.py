@@ -151,6 +151,14 @@ def test_int2int_setitem_twice(int2int_map):
 
 def test_int2int_setitem_more_items(int2int_map):
 
+    class Int2IntItem_t(ctypes.Structure):
+
+        _fields_ = [
+            ('key', ctypes.c_ulonglong),
+            ('value', ctypes.c_size_t),
+            ('status', ctypes.c_int),
+        ]
+
     class Int2IntHashTable_t(ctypes.Structure):
 
         _fields_ = [
@@ -158,19 +166,24 @@ def test_int2int_setitem_more_items(int2int_map):
             ('current_size', ctypes.c_size_t),
             ('table_size', ctypes.c_size_t),
             ('readonly', ctypes.c_bool),
-            ('table', ctypes.c_void_p),
         ]
 
-    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+    t = Int2IntHashTable_t.from_address(int2int_map.buffer_ptr)
 
+    assert int2int_map.buffer_size == (
+        ctypes.sizeof(Int2IntHashTable_t)
+        + (ctypes.sizeof(Int2IntItem_t) * t.table_size))
     assert t.size == 8
     assert t.current_size == 0
 
     for i in range(16):
         int2int_map[i] = i + 100
 
-    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+    t = Int2IntHashTable_t.from_address(int2int_map.buffer_ptr)
 
+    assert int2int_map.buffer_size == (
+        ctypes.sizeof(Int2IntHashTable_t)
+        + (ctypes.sizeof(Int2IntItem_t) * t.table_size))
     assert len(int2int_map) == 16
     assert set(int2int_map.items()) == {
         (0, 100), (1, 101), (2, 102), (3, 103),
@@ -191,6 +204,14 @@ def test_int2int_setitem_delitem(int2int_map):
 
 def test_int2int_getitem_more_keys_does_not_exist_and_default_kwarg():
 
+    class Int2IntItem_t(ctypes.Structure):
+
+        _fields_ = [
+            ('key', ctypes.c_ulonglong),
+            ('value', ctypes.c_size_t),
+            ('status', ctypes.c_int),
+        ]
+
     class Int2IntHashTable_t(ctypes.Structure):
 
         _fields_ = [
@@ -198,20 +219,25 @@ def test_int2int_getitem_more_keys_does_not_exist_and_default_kwarg():
             ('current_size', ctypes.c_size_t),
             ('table_size', ctypes.c_size_t),
             ('readonly', ctypes.c_bool),
-            ('table', ctypes.c_void_p),
         ]
 
     int2int_map = Int2Int(default=100)
-    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+    t = Int2IntHashTable_t.from_address(int2int_map.buffer_ptr)
 
+    assert int2int_map.buffer_size == (
+        ctypes.sizeof(Int2IntHashTable_t)
+        + (ctypes.sizeof(Int2IntItem_t) * t.table_size))
     assert t.size == 8
     assert t.current_size == 0
 
     for i in range(16):
         int2int_map[i]
 
-    t = Int2IntHashTable_t.from_address(int2int_map.get_ptr())
+    t = Int2IntHashTable_t.from_address(int2int_map.buffer_ptr)
 
+    assert int2int_map.buffer_size == (
+        ctypes.sizeof(Int2IntHashTable_t)
+        + (ctypes.sizeof(Int2IntItem_t) * t.table_size))
     assert len(int2int_map) == 16
     assert set(int2int_map.items()) == {
         (0, 100), (1, 100), (2, 100), (3, 100),
@@ -350,10 +376,6 @@ def test_int2int_contains_fail_when_key_is_too_big(int2int_map):
     assert "int too big to convert" in str(exc_info)
 
 
-def test_int2int_get_ptr(int2int_map):
-    int2int_map[1] = 100
-
-
 def test_int2int_from_ptr(int2int_map):
     int2int_map[1] = 101
     int2int_map[2] = 102
@@ -364,7 +386,7 @@ def test_int2int_from_ptr(int2int_map):
         int2int_map[3] = 103
     assert "Instance is read-only" in str(exc_info)
 
-    addr = int2int_map.get_ptr()
+    addr = int2int_map.buffer_ptr
     int2int_new_map = Int2Int.from_ptr(addr)
 
     assert int2int_new_map[1] == 101
@@ -377,7 +399,7 @@ def test_int2int_from_ptr(int2int_map):
 
 def test_int2int_from_ptr_fail_when_not_readonly(int2int_map):
     with pytest.raises(RuntimeError) as exc_info:
-        addr = int2int_map.get_ptr()
+        addr = int2int_map.buffer_ptr
         Int2Int.from_ptr(addr)
     assert "Instance must be read-only" in str(exc_info)
 
@@ -544,6 +566,7 @@ def test_int2int_pickle_dumps_loads_when_default():
     assert new == int2int_map
     assert set(new.keys()) == {1, 2, 3, 4, 5, 6}
     assert set(new.values()) == {101, 102, 103, 104, 105, 0}
+
 
 def test_int2int_readonly_flag_is_false(int2int_map):
     assert int2int_map.readonly is False

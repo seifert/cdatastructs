@@ -17,7 +17,6 @@ cdef extern from "hashmap.h":
         size_t current_size
         size_t table_size
         bool readonly
-        Int2IntItem_t * table
 
     cdef int int2int_set(
         Int2IntHashTable_t * const ctx,
