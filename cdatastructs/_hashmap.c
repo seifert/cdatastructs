@@ -105,30 +105,27 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
 
     char *kwnames[] = {"default", NULL};
     PyObject *default_value = Py_None;
-    Int2Int_t *self;
+    Int2Int_t *self = NULL;
     size_t table_size;
     size_t int2int_memory_size;
 
     /* Parse arguments */
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$O", kwnames,
             &default_value)) {
-        return NULL;
+        goto error;
     }
-    if (default_value != Py_None) {
-        if (!PyLong_Check(default_value)) {
-            PyErr_SetString(PyExc_TypeError,
-                    "'default' must be positive int");
-            return NULL;
-        }
-        if ((PyLong_AsSize_t(default_value) == (size_t) -1)
-                && PyErr_Occurred()) {
-            return NULL;
-        }
+    /* Validate arguments */
+    if ((default_value != Py_None)
+            && (!PyLong_Check(default_value) ||
+                    ((PyLong_AsSize_t(default_value) == (size_t) -1)
+                            && PyErr_Occurred()))) {
+        PyErr_SetString(PyExc_TypeError, "'default' must be positive int");
+        goto error;
     }
 
     /* Create instance */
     if (NULL == (self = (Int2Int_t*) cls->tp_alloc(cls, 0))) {
-        return NULL;
+        goto error;
     }
 
     /* Allocate memory for Int2IntHashTable_t structure and hashtable. At
@@ -137,8 +134,8 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
     table_size = (INT2INT_INITIAL_SIZE * 1.2) + 1;
     int2int_memory_size = Int2Int_memory_size(table_size);
     if (NULL == (self->hashmap = PyMem_RawMalloc(int2int_memory_size))) {
-        Py_TYPE(self)->tp_free((PyObject*) self);
-        return PyErr_NoMemory();
+        PyErr_NoMemory();
+        goto error;
     }
     memset(self->hashmap, 0, int2int_memory_size);
 
@@ -153,6 +150,13 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
 
     Py_INCREF(self->default_value);
     return (PyObject*) self;
+
+error:
+    if (NULL != self) {
+        cls->tp_free((PyObject*) self);
+    }
+
+    return NULL;
 }
 
 static void Int2Int_dealloc(Int2Int_t *self) {

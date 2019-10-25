@@ -22,8 +22,7 @@ def test_int2int_new_fail_when_invalid_default_kwarg_type():
 
 
 def test_int2int_new_fail_when_negative_default_kwarg():
-    with pytest.raises(
-            OverflowError, match="can't convert negative value to size_t"):
+    with pytest.raises(TypeError, match="'default' must be positive int"):
         Int2Int(default=-1)
 
 
