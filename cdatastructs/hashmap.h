@@ -7,7 +7,8 @@
 
 typedef enum {
     EMPTY,
-    USED
+    USED,
+    DELETED
 } ItemStatus_e;
 
 /*
@@ -29,6 +30,9 @@ typedef struct {
 
 int int2int_set(Int2IntHashTable_t * const ctx,
         const unsigned long long key, const size_t value);
+
+int int2int_del(Int2IntHashTable_t * const ctx,
+        const unsigned long long key);
 
 int int2int_get(const Int2IntHashTable_t * const ctx,
         const unsigned long long key, size_t * const value);

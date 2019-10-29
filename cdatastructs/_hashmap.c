@@ -378,24 +378,32 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
     }
 
     if (value == NULL) {
-        PyErr_SetString(PyExc_NotImplementedError, "Can't delete item");
-        return -1;
+        /* Delete item */
+        if (int2int_del(self->hashmap, c_key) == -1) {
+            Py_INCREF(key);
+            PyErr_SetObject(PyExc_KeyError, key);
+            return -1;
+        }
     }
-    if (!PyLong_Check(value)) {
-        PyErr_SetString(PyExc_TypeError, "'value' must be an integer");
-        return -1;
-    }
-    c_value = PyLong_AsSize_t(value);
-    if ((c_value == (size_t) -1) && (PyErr_Occurred() != NULL)) {
-        return -1;
-    }
+    else {
+        /* Set new or update existing item */
+        if (!PyLong_Check(value)) {
+            PyErr_SetString(PyExc_TypeError, "'value' must be an integer");
+            return -1;
+        }
+        c_value = PyLong_AsSize_t(value);
+        if ((c_value == (size_t) -1) && (PyErr_Occurred() != NULL)) {
+            return -1;
+        }
 
-    if (Int2Int_resize_table(self) == -1) {
-        return -1;
-    }
-    if (int2int_set(self->hashmap, c_key, c_value) == -1) {
-        PyErr_SetString(PyExc_RuntimeError, "Maximum size has been exceeded");
-        return -1;
+        if (Int2Int_resize_table(self) == -1) {
+            return -1;
+        }
+        if (int2int_set(self->hashmap, c_key, c_value) == -1) {
+            PyErr_SetString(PyExc_RuntimeError,
+                    "Maximum size has been exceeded");
+            return -1;
+        }
     }
 
     return 0;

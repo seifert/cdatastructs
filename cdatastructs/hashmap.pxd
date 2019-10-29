@@ -4,6 +4,7 @@ cdef extern from "hashmap.h":
     ctypedef enum ItemStatus_e:
         EMPTY
         USED
+        DELETED
 
     # int2int
 
@@ -21,6 +22,10 @@ cdef extern from "hashmap.h":
     cdef int int2int_set(
         Int2IntHashTable_t * const ctx,
         const unsigned long long key, const size_t value)
+
+    cdef int int2int_del(
+        Int2IntHashTable_t * const ctx,
+        const unsigned long long key)
 
     cdef int int2int_get(
         const Int2IntHashTable_t * const ctx,

@@ -195,11 +195,39 @@ def test_int2int_setitem_more_items(int2int_map):
     assert t.current_size == 16
 
 
-def test_int2int_setitem_delitem(int2int_map):
-    int2int_map[1] = 100
-    with pytest.raises(NotImplementedError) as exc_info:
+def test_int2int_delitem(int2int_map):
+    int2int_map[1] = 101
+    int2int_map[2] = 102
+    int2int_map[3] = 103
+    int2int_map[4] = 104
+    int2int_map[5] = 105
+    int2int_map[6] = 106
+    int2int_map[7] = 107
+    int2int_map[8] = 108
+
+    assert len(int2int_map) == 8
+    del int2int_map[1]
+    assert len(int2int_map) == 7
+    del int2int_map[2]
+    assert len(int2int_map) == 6
+    del int2int_map[3]
+    assert len(int2int_map) == 5
+    del int2int_map[4]
+    assert len(int2int_map) == 4
+    del int2int_map[5]
+    assert len(int2int_map) == 3
+    del int2int_map[6]
+    assert len(int2int_map) == 2
+    del int2int_map[7]
+    assert len(int2int_map) == 1
+    del int2int_map[8]
+    assert len(int2int_map) == 0
+
+
+def test_int2int_delitem_fail_when_key_does_not_exist(int2int_map):
+    int2int_map[2] = 102
+    with pytest.raises(KeyError, match='1'):
         del int2int_map[1]
-    assert "Can't delete item" in str(exc_info)
 
 
 def test_int2int_getitem_more_keys_does_not_exist_and_default_kwarg():
