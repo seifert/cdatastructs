@@ -307,7 +307,7 @@ static int Int2Int_contains(Int2Int_t *self, PyObject *key) {
         return -1;
     }
 
-    return int2int_has(self->hashmap, c_key);
+    return int2int_has(self->hashmap, c_key) == -1 ? 0 : 1;
 }
 
 static int Int2Int_resize_table(Int2Int_t *self) {

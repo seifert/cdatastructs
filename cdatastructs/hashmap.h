@@ -37,8 +37,8 @@ int int2int_del(Int2IntHashTable_t * const ctx,
 int int2int_get(const Int2IntHashTable_t * const ctx,
         const unsigned long long key, size_t * const value);
 
-size_t * int2int_get_ptr(const Int2IntHashTable_t * const ctx,
-        const unsigned long long key);
+int int2int_ptr(const Int2IntHashTable_t * const ctx,
+        const unsigned long long key, size_t ** const value);
 
 int int2int_has(const Int2IntHashTable_t * const ctx,
         const unsigned long long key);

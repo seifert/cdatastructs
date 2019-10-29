@@ -31,9 +31,9 @@ cdef extern from "hashmap.h":
         const Int2IntHashTable_t * const ctx,
         const unsigned long long key, size_t * const value)
 
-    cdef size_t * int2int_get_ptr(
+    cdef int int2int_ptr(
         const Int2IntHashTable_t * const ctx,
-        const unsigned long long key)
+        const unsigned long long key, size_t ** const value)
 
     cdef int int2int_has(
         const Int2IntHashTable_t * const ctx, const unsigned long long key)
