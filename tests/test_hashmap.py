@@ -481,6 +481,86 @@ def test_int2int_items(int2int_map):
         (1, 101), (2, 102), (3, 103), (4, 104), (5, 105), (6, 106)}
 
 
+def test_int2int_pop(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert len(int2int_map) == 6
+    assert 2 in int2int_map
+    int2int_map.pop(2)
+    assert len(int2int_map) == 5
+    assert 2 not in int2int_map
+
+
+@pytest.mark.parametrize('default', [100, None])
+def test_int2int_pop_when_default(int2int_map, default):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert len(int2int_map) == 6
+    value = int2int_map.pop(7, default)
+    assert value == default or value is default
+    assert len(int2int_map) == 6
+
+
+def test_int2int_pop_when_invalid_default_type(int2int_map):
+    with pytest.raises(
+            TypeError, match="'default' must be positive int or None"):
+        int2int_map.pop(1, 'a')
+
+
+def test_int2int_pop_fail_when_key_does_not_exist_and_no_default(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    with pytest.raises(KeyError, match="7"):
+        int2int_map.pop(7)
+
+
+def test_int2int_popitem(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert len(int2int_map) == 6
+    item = int2int_map.popitem()
+    assert len(int2int_map) == 5
+    assert item[0] not in int2int_map
+
+
+def test_int2int_popitem_fail_when_empty(int2int_map):
+    with pytest.raises(KeyError, match="popitem\(\): mapping is empty"):
+        int2int_map.popitem()
+
+
+def test_int2int_clear(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    assert len(int2int_map) == 6
+    int2int_map.clear()
+    assert len(int2int_map) == 0
+
+
+def test_int2int_setdefault(int2int_map):
+    int2int_map[1] = 101
+    assert int2int_map.setdefault(1) == 101
+    assert len(int2int_map) == 1
+
+
+def test_int2int_setdefault_when_default(int2int_map):
+    int2int_map[1] = 101
+    assert int2int_map.setdefault(2, 102) == 102
+    assert len(int2int_map) == 2
+
+
+@pytest.mark.parametrize('default', [None, 'a'])
+def test_int2int_setdefault_when_invalid_default_type(int2int_map, default):
+    with pytest.raises(TypeError, match="'default' must be positive int"):
+        int2int_map.setdefault(1, default)
+
+
+def test_int2int_setdefault_fail_when_key_does_not_exist(int2int_map):
+    for i in range(1, 7, 1):
+        int2int_map[i] = 100 + i
+    with pytest.raises(KeyError, match="7"):
+        int2int_map.setdefault(7)
+
+
 def test_int2int_equal_when_empty():
     a = Int2Int()
     b = Int2Int()

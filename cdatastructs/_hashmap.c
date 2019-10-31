@@ -532,6 +532,134 @@ static PyObject* Int2Int_items(Int2Int_t *self) {
     return (PyObject*) iterator;
 }
 
+static PyObject* Int2Int_pop(Int2Int_t *self, PyObject *args) {
+    PyObject * key;
+    PyObject * default_value = NULL;
+    unsigned long long c_key;
+    size_t value;
+
+    if (!PyArg_ParseTuple(args, "O|O", &key, &default_value)) {
+        return NULL;
+    }
+    /* key argument */
+    if (!PyLong_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+        return NULL;
+    }
+
+    if (int2int_get(self->hashmap, c_key, &value) == -1) {
+        if (NULL != default_value) {
+            if ((!PyLong_Check(default_value)) && (default_value != Py_None)) {
+                PyErr_SetString(PyExc_TypeError,
+                        "'default' must be positive int or None");
+                return NULL;
+            }
+            if ((default_value != Py_None) &&
+                    (PyLong_AsSize_t(default_value) == (size_t) -1) &&
+                    PyErr_Occurred()) {
+                return NULL;
+            }
+            Py_INCREF(default_value);
+            return default_value;
+        }
+        PyErr_SetObject(PyExc_KeyError, key);
+        return NULL;
+    }
+
+    int2int_del(self->hashmap, c_key);
+    return PyLong_FromSize_t(value);
+}
+
+static PyObject* Int2Int_popitem(Int2Int_t *self) {
+    Int2IntItem_t * item;
+    PyObject * res = NULL;
+    PyObject * key = NULL;
+    PyObject * value = NULL;
+
+    for (size_t i=0; i<self->hashmap->table_size; ++i) {
+        item = &(self->table[i]);
+        if (USED == item->status) {
+            if (NULL == (key = PyLong_FromUnsignedLongLong(item->key))) {
+                goto error;
+            }
+            if (NULL == (value = PyLong_FromSize_t(item->value))) {
+                goto error;
+            }
+            if (NULL == (res = PyTuple_New(2))) {
+                goto error;
+            }
+            PyTuple_SET_ITEM(res, 0, key);
+            PyTuple_SET_ITEM(res, 1, value);
+
+            item->status = DELETED;
+            self->hashmap->current_size -= 1;
+
+            return res;
+        }
+    }
+    PyErr_SetString(PyExc_KeyError, "popitem(): mapping is empty");
+
+error:
+    Py_XDECREF(res);
+    Py_XDECREF(key);
+    Py_XDECREF(value);
+
+    return NULL;
+}
+
+static PyObject* Int2Int_clear(Int2Int_t *self) {
+    for (size_t i=0; i<self->hashmap->table_size; ++i) {
+        self->table[i].status = EMPTY;
+    }
+    self->hashmap->current_size = 0;
+
+    Py_RETURN_NONE;
+}
+static PyObject* Int2Int_setdefault(Int2Int_t *self, PyObject *args) {
+    PyObject * key;
+    PyObject * default_value = NULL;
+    unsigned long long c_key;
+    size_t c_value;
+
+    if (!PyArg_ParseTuple(args, "O|O", &key, &default_value)) {
+        return NULL;
+    }
+    /* key argument */
+    if (!PyLong_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+        return NULL;
+    }
+
+    if (int2int_get(self->hashmap, c_key, &c_value) == -1) {
+        if (NULL != default_value) {
+            if (!PyLong_Check(default_value)) {
+                PyErr_SetString(PyExc_TypeError,
+                        "'default' must be positive int");
+                return NULL;
+            }
+            if ((c_value = (PyLong_AsSize_t(default_value) == (size_t) -1)) &&
+                    PyErr_Occurred()) {
+                return NULL;
+            }
+            int2int_set(self->hashmap, c_key, c_value);
+            Py_INCREF(default_value);
+            return default_value;
+        }
+        PyErr_SetObject(PyExc_KeyError, key);
+        return NULL;
+    }
+
+    return PyLong_FromSize_t(c_value);
+}
+
 static PyObject* Int2Int_reduce(Int2Int_t *self) {
     PyObject *res = NULL;
     PyObject *args = NULL;
@@ -748,6 +876,31 @@ static PyMethodDef Int2Int_methods[] = {
             "Return an iterator over the hashmaps’s (key, value) tuple\n"
             "pairs. Don't change hashmap during iteration, behavior is\n"
             "undefined!"},
+    {"pop", (PyCFunction) Int2Int_pop, METH_VARARGS,
+            "pop(self, key, default, /)\n"
+            "--\n"
+            "\n"
+            "Return value for key and remove this value from structure.\n"
+            "If key does not exist, return default value, otherwise raise\n"
+            "KeyError exception. default must be int or None."},
+    {"popitem", (PyCFunction) Int2Int_popitem, METH_NOARGS,
+            "popitem(self, /)\n"
+            "--\n"
+            "\n"
+            "Return arbitrary (key, value) pair from structure and remove\n"
+            "this item."},
+    {"clear", (PyCFunction) Int2Int_clear, METH_NOARGS,
+            "clear(self, /)\n"
+            "--\n"
+            "\n"
+            "Remove all items from structure."},
+    {"setdefault", (PyCFunction) Int2Int_setdefault, METH_VARARGS,
+            "setdefault(self, key, default, /)\n"
+            "--\n"
+            "\n"
+            "Return value for key. If key does not exist, insert new key\n"
+            "with value default and return this value. If default is not\n"
+            "specified, raise KeyError exception. default must be int.\n"},
     {"from_ptr", (PyCFunction) Int2Int_from_ptr, METH_VARARGS | METH_CLASS,
             "from_ptr(self, addr, /)\n"
             "--\n"
