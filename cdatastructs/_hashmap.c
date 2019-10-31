@@ -458,14 +458,12 @@ static PyObject* Int2Int_iter(Int2Int_t *self) {
 }
 
 static PyObject* Int2Int_get(Int2Int_t *self, PyObject *args, PyObject *kwds) {
-    char *kwnames[] = {"key", "default", NULL};
     PyObject * key;
     PyObject * default_value = Py_None;
     unsigned long long c_key;
     size_t value;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwnames,
-            &key, &default_value)) {
+    if (!PyArg_ParseTuple(args, "O|O", &key, &default_value)) {
         return NULL;
     }
     /* key argument */
@@ -725,12 +723,12 @@ static PyMappingMethods Int2Int_mapping_methods = {
 };
 
 static PyMethodDef Int2Int_methods[] = {
-    {"get", (PyCFunction) Int2Int_get, METH_VARARGS | METH_KEYWORDS,
+    {"get", (PyCFunction) Int2Int_get, METH_VARARGS,
             "get(self, key, default=None, /)\n"
             "--\n"
             "\n"
             "Return value for key. If key does not exist, return default\n"
-            "value, otherwise return None."},
+            "value, otherwise return None. default must be int or None."},
     {"keys", (PyCFunction) Int2Int_keys, METH_VARARGS,
             "keys(self, /)\n"
             "--\n"

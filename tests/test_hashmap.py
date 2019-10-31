@@ -326,16 +326,19 @@ def test_int2int_get_when_key_does_not_exist(int2int_map):
     assert int2int_map.get(1) is None
 
 
-def test_int2int_get_when_key_does_not_exist_and_default_arg(int2int_map):
-    value = int2int_map.get(1, 100)
-    assert isinstance(value, int)
-    assert value == 100
+@pytest.mark.parametrize('default', [100, None])
+def test_int2int_get_when_key_does_not_exist_and_default_arg(
+        int2int_map, default):
+    value = int2int_map.get(1, default)
+    assert isinstance(value, type(default))
+    assert (value == default) or (value is default)
 
 
-def test_int2int_get_when_key_does_not_exist_and_default_kwarg(int2int_map):
-    value = int2int_map.get(1, default=100)
-    assert isinstance(value, int)
-    assert value == 100
+def test_int2int_get_fail_when_invalid_default_type(int2int_map):
+    with pytest.raises(TypeError) as exc_info:
+        int2int_map.get(1, '1')
+    exc_msg = str(exc_info)
+    assert "'default' must be int or None" in exc_msg
 
 
 def test_int2int_get_fail_when_invalid_key_type(int2int_map):
