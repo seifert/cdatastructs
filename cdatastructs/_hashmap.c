@@ -905,7 +905,7 @@ static PyMethodDef Int2Int_methods[] = {
             "from_ptr(self, addr, /)\n"
             "--\n"
             "\n"
-            "Return instance created from address pointed to existing "
+            "Return instance created from address pointed to existing\n"
             "Int2Int memory block."},
     {"make_readonly", (PyCFunction) Int2Int_make_readonly, METH_NOARGS,
             "make_readonly(self, /)\n"
@@ -924,14 +924,14 @@ static PyMethodDef Int2Int_methods[] = {
             "\n"
             "Return instance created from raw data.\n"
             "\n"
-            "It is protected method used when object is unpickled, do not "
+            "It is protected method used when object is unpickled, do not \n"
             "call this method yourself!"},
     {NULL}
 };
 
 static PyGetSetDef Int2Int_getset[] = {
     {"readonly", (getter) Int2Int_get_readonly, NULL,
-            "Flag that indicates that instance is read-only\n", NULL},
+            "Flag that indicates that instance is read-only.", NULL},
     {"buffer_ptr", (getter) Int2Int_get_buffer_ptr, NULL,
             "Address to internal buffer.", NULL},
     {"buffer_size", (getter) Int2Int_get_buffer_size, NULL,
