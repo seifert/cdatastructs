@@ -16,6 +16,47 @@ def int2int_map():
     return Int2Int()
 
 
+@pytest.mark.parametrize(
+    'initializer',
+    [
+        [(1, 101), (2, 102)],
+        iter([iter([1, 101]), iter([2, 102])]),
+    ]
+)
+def test_int2int_new_when_initializer_is_iterable(initializer):
+    int2int_map = Int2Int(initializer)
+    assert set(int2int_map.items()) == {(1, 101), (2, 102)}
+
+
+def test_int2int_new_when_initializer_is_mapping():
+    int2int_map = Int2Int({1: 101, 2: 102})
+    assert set(int2int_map.items()) == {(1, 101), (2, 102)}
+
+
+@pytest.mark.parametrize(
+    'other, exc, msg',
+    [
+        (None, TypeError, "must be mapping or iterator over pairs"),
+        (1, TypeError, "must be mapping or iterator over pairs"),
+        ([1], TypeError, "must be mapping or iterator over pairs"),
+        ([()], TypeError, "must be mapping or iterator over pairs"),
+        ([(1)], TypeError, "must be mapping or iterator over pairs"),
+        ([(1, 2, 3)], TypeError, "must be mapping or iterator over pairs"),
+        ([(-1, 2)], OverflowError, "can't convert"),
+        ([(1, -2)], OverflowError, "can't convert"),
+        ([(1, 'a')], TypeError, "must be an integer"),
+        ([('a', 1)], TypeError, "must be an integer"),
+        ({-1: 1}, OverflowError, "can't convert"),
+        ({1: -1}, OverflowError, "can't convert"),
+        ({'a': 1}, TypeError, "must be an integer"),
+        ({1: 'a'}, TypeError, "must be an integer"),
+    ]
+)
+def test_int2int_new_fail_when_invalid_initializer(other, exc, msg):
+    with pytest.raises(exc, match=msg):
+        Int2Int(other)
+
+
 def test_int2int_new_fail_when_invalid_default_kwarg_type():
     with pytest.raises(TypeError, match="'default' must be positive int"):
         Int2Int(default='8')
@@ -581,11 +622,6 @@ def test_int2int_update_fail_when_invalid_value(int2int_map, other, exc, msg):
         int2int_map.update(other)
 
 
-def test_int2int_update_fail_when_invalid_type(int2int_map):
-    with pytest.raises(TypeError, match="'other' must be mapping or iterator"):
-        int2int_map.update(1)
-
-
 def test_int2int_setdefault(int2int_map):
     int2int_map[1] = 101
     assert int2int_map.setdefault(1) == 101
@@ -600,7 +636,7 @@ def test_int2int_setdefault_when_default(int2int_map):
 
 @pytest.mark.parametrize('default', [None, 'a'])
 def test_int2int_setdefault_when_invalid_default_type(int2int_map, default):
-    with pytest.raises(TypeError, match="'default' must be positive int"):
+    with pytest.raises(TypeError, match="'value' must be an integer"):
         int2int_map.setdefault(1, default)
 
 

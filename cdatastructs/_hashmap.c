@@ -101,18 +101,21 @@ static inline size_t Int2Int_memory_size(const size_t ncount) {
     return sizeof(Int2IntHashTable_t) + (ncount * sizeof(Int2IntItem_t));
 }
 
+int Int2Int_update_from_initializer(Int2Int_t *self, PyObject *initializer);
+
 static PyObject* Int2Int_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
 
-    char *kwnames[] = {"default", NULL};
+    char *kwnames[] = {"initializer", "default", NULL};
+    PyObject *initializer = NULL;
     PyObject *default_value = Py_None;
     Int2Int_t *self = NULL;
     size_t table_size;
     size_t int2int_memory_size;
 
     /* Parse arguments */
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$O", kwnames,
-            &default_value)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$O", kwnames,
+            &initializer, &default_value)) {
         goto error;
     }
     /* Validate arguments */
@@ -148,6 +151,11 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
     self->hashmap->table_size = table_size;
     self->hashmap->readonly = false;
     self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
+
+    if ((NULL != initializer) &&
+            (Int2Int_update_from_initializer(self, initializer) != 0)) {
+        goto error;
+    }
 
     Py_INCREF(self->default_value);
     return (PyObject*) self;
@@ -620,26 +628,21 @@ static PyObject* Int2Int_clear(Int2Int_t *self) {
     Py_RETURN_NONE;
 }
 
-static PyObject* Int2Int_update(Int2Int_t *self, PyObject *args) {
-    PyObject * other = NULL;
+int Int2Int_update_from_initializer(Int2Int_t *self, PyObject *initializer) {
     PyObject * pairs = NULL;
     PyObject * pairs_it = NULL;
     PyObject * pair = NULL;
     PyObject * item = NULL;
-    PyObject * res = NULL;
-
-    if (!PyArg_ParseTuple(args, "|O", &other)) {
-        goto cleanup;
-    }
+    int res = -1;
 
     /* No 'other' argument */
-    if (NULL == other) {
-        res = Py_None;
+    if (NULL == initializer) {
+        res = 0;
         goto cleanup;
     }
 
     /* 'other' is mapping */
-    if (NULL != (pairs = PyMapping_Items(other))) {
+    if (NULL != (pairs = PyMapping_Items(initializer))) {
         if (NULL != (pairs_it = PyObject_GetIter(pairs))) {
             while (NULL != (pair = PyIter_Next(pairs_it))) {
                 if (Int2Int_setitem(self, PyTuple_GET_ITEM(pair, 0),
@@ -651,7 +654,7 @@ static PyObject* Int2Int_update(Int2Int_t *self, PyObject *args) {
             if (PyErr_Occurred()) {
                 goto cleanup;
             }
-            res = Py_None;
+            res = 0;
             goto cleanup;
         }
     }
@@ -660,7 +663,7 @@ static PyObject* Int2Int_update(Int2Int_t *self, PyObject *args) {
     }
 
     /* 'other' is iterator */
-    if (NULL != (pairs_it = PyObject_GetIter(other))) {
+    if (NULL != (pairs_it = PyObject_GetIter(initializer))) {
         while (NULL != (item = PyIter_Next(pairs_it))) {
             /* Check pair */
             if (NULL == (pair = PySequence_Tuple(item))) {
@@ -679,13 +682,14 @@ static PyObject* Int2Int_update(Int2Int_t *self, PyObject *args) {
         if (PyErr_Occurred()) {
             goto cleanup;
         }
-        res = Py_None;
+        res = 0;
         goto cleanup;
     }
 
 error:
     PyErr_SetString(PyExc_TypeError,
-            "'other' must be mapping or iterator over pairs (key, value)");
+            "'initializer' must be mapping or iterator "
+            "over pairs (key, value)");
 
 cleanup:
     Py_XDECREF(pairs);
@@ -693,8 +697,19 @@ cleanup:
     Py_XDECREF(pair);
     Py_XDECREF(item);
 
-    Py_XINCREF(res);
     return res;
+}
+
+static PyObject* Int2Int_update(Int2Int_t *self, PyObject *args) {
+    PyObject * initializer = NULL;
+
+    if (!PyArg_ParseTuple(args, "|O", &initializer)) {
+        return NULL;
+    }
+    if (Int2Int_update_from_initializer(self, initializer) != 0) {
+        return NULL;
+    }
+    Py_RETURN_NONE;
 }
 
 static PyObject* Int2Int_setdefault(Int2Int_t *self, PyObject *args) {
@@ -717,22 +732,11 @@ static PyObject* Int2Int_setdefault(Int2Int_t *self, PyObject *args) {
     }
 
     if (int2int_get(self->hashmap, c_key, &c_value) == -1) {
-        if (NULL != default_value) {
-            if (!PyLong_Check(default_value)) {
-                PyErr_SetString(PyExc_TypeError,
-                        "'default' must be positive int");
-                return NULL;
-            }
-            if ((c_value = (PyLong_AsSize_t(default_value) == (size_t) -1)) &&
-                    PyErr_Occurred()) {
-                return NULL;
-            }
-            int2int_set(self->hashmap, c_key, c_value);
-            Py_INCREF(default_value);
-            return default_value;
+        if (Int2Int_setitem(self, key, default_value) == -1) {
+            return NULL;
         }
-        PyErr_SetObject(PyExc_KeyError, key);
-        return NULL;
+        Py_INCREF(default_value);
+        return default_value;
     }
 
     return PyLong_FromSize_t(c_value);
@@ -973,12 +977,12 @@ static PyMethodDef Int2Int_methods[] = {
             "\n"
             "Remove all items from structure."},
     {"update", (PyCFunction) Int2Int_update, METH_VARARGS,
-            "update(self, other, /)\n"
+            "update(self, initializer, /)\n"
             "--\n"
             "\n"
-            "Update mapping with keys and values from other, overwrite\n"
-            "existing values. other can be iterable with either (key, value)\n"
-            "pairs or mapping."},
+            "Update mapping with keys and values from initializer,\n"
+            "overwrite existing values. initializer can be either\n"
+            "iterable with (key, value) pairs or mapping."},
     {"setdefault", (PyCFunction) Int2Int_setdefault, METH_VARARGS,
             "setdefault(self, key, default, /)\n"
             "--\n"
@@ -1045,15 +1049,18 @@ static PyTypeObject Int2Int_type = {
     0,                                                  /* tp_setattro */
     0,                                                  /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags */
-    "Int2Int(self, default=None, /)\n"                  /* tp_doc */
+    "Int2Int(self, initializer, default=None, /)\n"     /* tp_doc */
     "--\n"
     "\n"
-    "Simple fixed-size hashmap which maps int key "
-    "to int value.\n"
+    "Simple fixed-size hashmap which maps int key to int value. Provides\n"
+    "pointer to internal C structure and set/del/get/has functions, so\n"
+    "hashmap is accesible from pure C. Easily fill data in Python and\n"
+    "compute in C or Cython.\n"
     "\n"
-    "Provides pointer to internal C structure and set/get/has functions,\n"
-    "so hashmap is accesible from pure C. Easily fill data in Python and\n"
-    "compute in C or Cython.\n",
+    "If initializer is specified, instance will be filled from this\n"
+    "initializer. It can be either iterable with (key, value) pairs or\n"
+    "mapping. If default is specified, value of the default will be\n"
+    "returned when key does not exist and will be stored into mapping.",
     0,                                                  /* tp_traverse */
     0,                                                  /* tp_clear */
     (richcmpfunc) Int2Int_richcompare,                  /* tp_richcompare */
