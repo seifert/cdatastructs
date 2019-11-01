@@ -338,7 +338,7 @@ def test_int2int_get_fail_when_invalid_default_type(int2int_map):
     with pytest.raises(TypeError) as exc_info:
         int2int_map.get(1, '1')
     exc_msg = str(exc_info)
-    assert "'default' must be int or None" in exc_msg
+    assert "'default' must be positive int" in exc_msg
 
 
 def test_int2int_get_fail_when_invalid_key_type(int2int_map):
@@ -358,13 +358,6 @@ def test_int2int_get_fail_when_key_is_too_big(int2int_map):
     with pytest.raises(OverflowError) as exc_info:
         int2int_map.get(2 ** 64)
     assert "int too big to convert" in str(exc_info)
-
-
-def test_int2int_get_fail_when_invalid_default_type(int2int_map):
-    with pytest.raises(TypeError) as exc_info:
-        int2int_map.get(1, '1')
-    exc_msg = str(exc_info)
-    assert "'default' must be positive int" in exc_msg
 
 
 def test_int2int_get_fail_when_negative_default(int2int_map):
@@ -534,6 +527,63 @@ def test_int2int_clear(int2int_map):
     assert len(int2int_map) == 6
     int2int_map.clear()
     assert len(int2int_map) == 0
+
+
+def test_int2int_update_when_none(int2int_map):
+    int2int_map[1] = 101
+    int2int_map[2] = 102
+    int2int_map.update()
+    assert set(int2int_map.items()) == {(1, 101), (2, 102)}
+
+
+@pytest.mark.parametrize(
+    'other',
+    [
+        [(3, 103), (4, 104)],
+        iter([iter([3, 103]), iter([4, 104])]),
+    ]
+)
+def test_int2int_update_when_pairs(int2int_map, other):
+    int2int_map[1] = 101
+    int2int_map[2] = 102
+    int2int_map.update(other)
+    assert set(int2int_map.items()) == {(1, 101), (2, 102), (3, 103), (4, 104)}
+
+
+def test_int2int_update_when_mapping(int2int_map):
+    int2int_map[1] = 101
+    int2int_map[2] = 102
+    int2int_map.update({3: 103, 4: 104})
+    assert set(int2int_map.items()) == {(1, 101), (2, 102), (3, 103), (4, 104)}
+
+
+@pytest.mark.parametrize(
+    'other, exc, msg',
+    [
+        (None, TypeError, "must be mapping or iterator over pairs"),
+        (1, TypeError, "must be mapping or iterator over pairs"),
+        ([1], TypeError, "must be mapping or iterator over pairs"),
+        ([()], TypeError, "must be mapping or iterator over pairs"),
+        ([(1)], TypeError, "must be mapping or iterator over pairs"),
+        ([(1, 2, 3)], TypeError, "must be mapping or iterator over pairs"),
+        ([(-1, 2)], OverflowError, "can't convert"),
+        ([(1, -2)], OverflowError, "can't convert"),
+        ([(1, 'a')], TypeError, "must be an integer"),
+        ([('a', 1)], TypeError, "must be an integer"),
+        ({-1: 1}, OverflowError, "can't convert"),
+        ({1: -1}, OverflowError, "can't convert"),
+        ({'a': 1}, TypeError, "must be an integer"),
+        ({1: 'a'}, TypeError, "must be an integer"),
+    ]
+)
+def test_int2int_update_fail_when_invalid_value(int2int_map, other, exc, msg):
+    with pytest.raises(exc, match=msg):
+        int2int_map.update(other)
+
+
+def test_int2int_update_fail_when_invalid_type(int2int_map):
+    with pytest.raises(TypeError, match="'other' must be mapping or iterator"):
+        int2int_map.update(1)
 
 
 def test_int2int_setdefault(int2int_map):

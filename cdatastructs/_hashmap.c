@@ -619,6 +619,84 @@ static PyObject* Int2Int_clear(Int2Int_t *self) {
 
     Py_RETURN_NONE;
 }
+
+static PyObject* Int2Int_update(Int2Int_t *self, PyObject *args) {
+    PyObject * other = NULL;
+    PyObject * pairs = NULL;
+    PyObject * pairs_it = NULL;
+    PyObject * pair = NULL;
+    PyObject * item = NULL;
+    PyObject * res = NULL;
+
+    if (!PyArg_ParseTuple(args, "|O", &other)) {
+        goto cleanup;
+    }
+
+    /* No 'other' argument */
+    if (NULL == other) {
+        res = Py_None;
+        goto cleanup;
+    }
+
+    /* 'other' is mapping */
+    if (NULL != (pairs = PyMapping_Items(other))) {
+        if (NULL != (pairs_it = PyObject_GetIter(pairs))) {
+            while (NULL != (pair = PyIter_Next(pairs_it))) {
+                if (Int2Int_setitem(self, PyTuple_GET_ITEM(pair, 0),
+                        PyTuple_GET_ITEM(pair, 1))) {
+                    goto cleanup;
+                }
+                Py_CLEAR(pair);
+            }
+            if (PyErr_Occurred()) {
+                goto cleanup;
+            }
+            res = Py_None;
+            goto cleanup;
+        }
+    }
+    else {
+        PyErr_Clear();
+    }
+
+    /* 'other' is iterator */
+    if (NULL != (pairs_it = PyObject_GetIter(other))) {
+        while (NULL != (item = PyIter_Next(pairs_it))) {
+            /* Check pair */
+            if (NULL == (pair = PySequence_Tuple(item))) {
+                goto error;
+            }
+            if (PySequence_Size(pair) != 2) {
+                goto error;
+            }
+            if (Int2Int_setitem(self, PyTuple_GET_ITEM(pair, 0),
+                    PyTuple_GET_ITEM(pair, 1))) {
+                goto cleanup;
+            }
+            Py_CLEAR(item);
+            Py_CLEAR(pair);
+        }
+        if (PyErr_Occurred()) {
+            goto cleanup;
+        }
+        res = Py_None;
+        goto cleanup;
+    }
+
+error:
+    PyErr_SetString(PyExc_TypeError,
+            "'other' must be mapping or iterator over pairs (key, value)");
+
+cleanup:
+    Py_XDECREF(pairs);
+    Py_XDECREF(pairs_it);
+    Py_XDECREF(pair);
+    Py_XDECREF(item);
+
+    Py_XINCREF(res);
+    return res;
+}
+
 static PyObject* Int2Int_setdefault(Int2Int_t *self, PyObject *args) {
     PyObject * key;
     PyObject * default_value = NULL;
@@ -894,6 +972,13 @@ static PyMethodDef Int2Int_methods[] = {
             "--\n"
             "\n"
             "Remove all items from structure."},
+    {"update", (PyCFunction) Int2Int_update, METH_VARARGS,
+            "update(self, other, /)\n"
+            "--\n"
+            "\n"
+            "Update mapping with keys and values from other, overwrite\n"
+            "existing values. other can be iterable with either (key, value)\n"
+            "pairs or mapping."},
     {"setdefault", (PyCFunction) Int2Int_setdefault, METH_VARARGS,
             "setdefault(self, key, default, /)\n"
             "--\n"
