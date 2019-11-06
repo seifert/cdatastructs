@@ -1005,7 +1005,7 @@ static PyMethodDef Int2Int_methods[] = {
             "__reduce__(self, /)\n"
             "--\n"
             "\n"
-            "Return reduce value of the instance."},
+            "Return reduced value of the instance."},
     {"_from_raw_data", (PyCFunction) Int2Int_from_raw_data,
             METH_VARARGS | METH_CLASS,
             "_from_raw_data(self, ..., /)\n"
@@ -1022,7 +1022,7 @@ static PyGetSetDef Int2Int_getset[] = {
     {"readonly", (getter) Int2Int_get_readonly, NULL,
             "Flag that indicates that instance is read-only.", NULL},
     {"buffer_ptr", (getter) Int2Int_get_buffer_ptr, NULL,
-            "Address to internal buffer.", NULL},
+            "Address of the internal buffer.", NULL},
     {"buffer_size", (getter) Int2Int_get_buffer_size, NULL,
             "Size of the internal buffer in bytes.", NULL},
     {NULL}
