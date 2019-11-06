@@ -101,7 +101,8 @@ static inline size_t Int2Int_memory_size(const size_t ncount) {
     return sizeof(Int2IntHashTable_t) + (ncount * sizeof(Int2IntItem_t));
 }
 
-int Int2Int_update_from_initializer(Int2Int_t *self, PyObject *initializer);
+static int Int2Int_update_from_initializer(Int2Int_t *self,
+        PyObject *initializer);
 
 static PyObject* Int2Int_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
@@ -628,7 +629,8 @@ static PyObject* Int2Int_clear(Int2Int_t *self) {
     Py_RETURN_NONE;
 }
 
-int Int2Int_update_from_initializer(Int2Int_t *self, PyObject *initializer) {
+static int Int2Int_update_from_initializer(Int2Int_t *self,
+        PyObject *initializer) {
     PyObject * pairs = NULL;
     PyObject * pairs_it = NULL;
     PyObject * pair = NULL;
@@ -1145,7 +1147,8 @@ static inline size_t Int2Float_memory_size(const size_t ncount) {
     return sizeof(Int2FloatHashTable_t) + (ncount * sizeof(Int2FloatItem_t));
 }
 
-int Int2Float_update_from_initializer(Int2Float_t *self, PyObject *initializer);
+static int Int2Float_update_from_initializer(Int2Float_t *self,
+        PyObject *initializer);
 
 static PyObject* Int2Float_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
