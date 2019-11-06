@@ -2176,9 +2176,21 @@ static PyModuleDef hashmapmodule = {
 };
 
 PyMODINIT_FUNC PyInit_hashmap(void) {
+    PyObject *abc_module = NULL;
+    PyObject *mutable_mapping = NULL;
     PyObject *all = NULL;
     PyObject *module = NULL;
 
+    /* Obtain MutableMapping from collections.abc */
+    if (NULL == (abc_module = PyImport_ImportModule("collections.abc"))) {
+        goto error;
+    }
+    if (NULL == (mutable_mapping = PyObject_GetAttrString(
+            abc_module, "MutableMapping"))) {
+        goto error;
+    }
+
+    /* Initialize types */
     if (PyType_Ready(&Int2IntIterator_type)
             || PyType_Ready(&Int2Int_type)
             || PyType_Ready(&Int2FloatIterator_type)
@@ -2186,16 +2198,17 @@ PyMODINIT_FUNC PyInit_hashmap(void) {
         goto error;
     }
 
+    /* Create module object */
     if (NULL == (module = PyModule_Create(&hashmapmodule))) {
         goto error;
     }
-
+    /* Create __all__ attribute */
     if (NULL == (all = PyList_New(2))) {
         goto error;
     }
     PyList_SET_ITEM(all, 0, PyUnicode_FromString("Int2Int"));
     PyList_SET_ITEM(all, 1, PyUnicode_FromString("Int2Float"));
-
+    /* Add objects onto module */
     Py_INCREF(&Int2Int_type);
     if (PyModule_AddObject(module, "Int2Int", (PyObject*) &Int2Int_type)) {
         Py_DECREF(&Int2Int_type);
@@ -2210,9 +2223,21 @@ PyMODINIT_FUNC PyInit_hashmap(void) {
         goto error;
     }
 
+    /* Register types into collections.abs */
+    if (NULL == PyObject_CallMethod(
+            mutable_mapping, "register", "O", (PyObject*) &Int2Int_type)) {
+        goto error;
+    }
+    if (NULL == PyObject_CallMethod(
+            mutable_mapping, "register", "O", (PyObject*) &Int2Float_type)) {
+        goto error;
+    }
+
     return module;
 
 error:
+    Py_XDECREF(abc_module);
+    Py_XDECREF(mutable_mapping);
     Py_XDECREF(module);
     Py_XDECREF(all);
 

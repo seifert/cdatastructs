@@ -1,4 +1,5 @@
 
+import collections.abc
 import ctypes
 import operator
 import pickle
@@ -14,6 +15,14 @@ from cdatastructs.hashmap import Int2Int, Int2Float
 @pytest.fixture(scope='function')
 def int2int_map():
     return Int2Int()
+
+
+def test_int2int_new(int2int_map):
+    assert isinstance(int2int_map, Int2Int)
+
+
+def test_int2int_new_is_collection_abc_mutable_mapping(int2int_map):
+    assert isinstance(int2int_map, collections.abc.MutableMapping)
 
 
 @pytest.mark.parametrize(
@@ -789,6 +798,14 @@ def test_int2int_readonly_flag_is_true(int2int_map):
 @pytest.fixture(scope='function')
 def int2float_map():
     return Int2Float()
+
+
+def test_int2float_new(int2float_map):
+    assert isinstance(int2float_map, Int2Float)
+
+
+def test_int2float_new_is_collection_abc_mutable_mapping(int2float_map):
+    assert isinstance(int2float_map, collections.abc.MutableMapping)
 
 
 @pytest.mark.parametrize(
