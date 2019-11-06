@@ -57,17 +57,20 @@ typedef struct {
     size_t size;
     size_t current_size;
     size_t table_size;
-    Int2FloatItem_t *table;
+    bool readonly;
 } Int2FloatHashTable_t;
 
 int int2float_set(Int2FloatHashTable_t * const ctx,
         const unsigned long long key, const double value);
 
+int int2float_del(Int2FloatHashTable_t * const ctx,
+        const unsigned long long key);
+
 int int2float_get(const Int2FloatHashTable_t * const ctx,
         const unsigned long long key, double * const value);
 
-double * int2float_get_ptr(const Int2FloatHashTable_t * const ctx,
-        const unsigned long long key);
+int int2float_ptr(const Int2FloatHashTable_t * const ctx,
+        const unsigned long long key, double ** const value);
 
 int int2float_has(const Int2FloatHashTable_t * const ctx,
         const unsigned long long key);

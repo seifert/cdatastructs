@@ -1087,10 +1087,14 @@ static PyTypeObject Int2Int_type = {
 typedef struct {
     PyObject_HEAD
     Int2FloatHashTable_t *hashmap;
+    Int2FloatItem_t *table;
     PyObject *default_value;
+    bool release_memory;
 } Int2Float_t;
 
 static PyTypeObject Int2Float_type;
+
+static const size_t INT2FLOAT_INITIAL_SIZE = 8;
 
 /* Int2Float iterator */
 
@@ -1099,7 +1103,7 @@ static PyObject* Int2FloatIterator_next(HashmapIterator_t *self) {
     PyObject *res = NULL;
 
     while (self->current_position < obj->hashmap->table_size) {
-        Int2FloatItem_t item = obj->hashmap->table[self->current_position];
+        Int2FloatItem_t item = obj->table[self->current_position];
         if (item.status == USED) {
             switch (self->iterator_type) {
             case KEYS:
@@ -1137,97 +1141,114 @@ static PyTypeObject Int2FloatIterator_type = {
 
 /* Int2Float */
 
-static PyObject* Int2Float_new(PyTypeObject *type,
+static inline size_t Int2Float_memory_size(const size_t ncount) {
+    return sizeof(Int2FloatHashTable_t) + (ncount * sizeof(Int2FloatItem_t));
+}
+
+int Int2Float_update_from_initializer(Int2Float_t *self, PyObject *initializer);
+
+static PyObject* Int2Float_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
 
-    char *kwnames[] = {"size", "default", NULL};
-    const Py_ssize_t size;
+    char *kwnames[] = {"initializer", "default", NULL};
+    PyObject *initializer = NULL;
     PyObject *default_value = NULL;
-    Int2Float_t *self;
+    Int2Float_t *self = NULL;
     size_t table_size;
     size_t int2float_memory_size;
-    void *int2float_memory;
 
     /* Parse arguments */
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|O", kwnames,
-            &size, &default_value)) {
-        return NULL;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$O", kwnames,
+            &initializer, &default_value)) {
+        goto error;
     }
-    if (default_value != NULL) {
-        if (default_value == Py_None) {
-            default_value = NULL;
-        }
-        else {
-            if (PyLong_Check(default_value)) {
-                double c_val = PyLong_AsDouble(default_value);
-                if ((c_val == -1.0) && (PyErr_Occurred() != NULL)) {
-                    return NULL;
-                }
-                default_value = PyFloat_FromDouble(c_val);
-                if (default_value == NULL) {
-                    return NULL;
-                }
+    /* Validate arguments */
+    if ((NULL != default_value) && (Py_None != default_value)) {
+        if (PyLong_Check(default_value)) {
+            if (NULL == (default_value = PyNumber_Float(default_value))) {
+                goto error;
             }
-            else {
-                if (!PyFloat_Check(default_value)) {
-                    PyErr_SetString(PyExc_TypeError,
-                            "'default' must be a float");
-                    return NULL;
-                }
-                Py_INCREF(default_value);
+        } else {
+            if (!PyFloat_Check(default_value)) {
+                PyErr_SetString(PyExc_TypeError, "'default' must be a float");
+                goto error;
             }
+            Py_INCREF(default_value);
         }
+    } else {
+        if (NULL == default_value) {
+            default_value = Py_None;
+        }
+        Py_INCREF(default_value);
     }
 
     /* Create instance */
-    self = (Int2Float_t*) type->tp_alloc(type, 0);
-    if (!self) {
-        return NULL;
+    if (NULL == (self = (Int2Float_t*) cls->tp_alloc(cls, 0))) {
+        goto error;
     }
 
     /* Allocate memory for Int2FloatHashTable_t structure and hashtable. At
        the beginning of block of the memory Int2FloatHashTable_t structure
        is placed, followed by hashtable (array of Int2FloatItem_t). */
-    table_size = (size * 1.2) + 1;;
-    int2float_memory_size = sizeof(Int2FloatHashTable_t) +
-            (table_size * sizeof(Int2FloatItem_t));
-    int2float_memory = PyMem_RawMalloc(int2float_memory_size);
-    if (!int2float_memory) {
-        Py_TYPE(self)->tp_free((PyObject*) self);
-        return PyErr_NoMemory();
+    table_size = (INT2FLOAT_INITIAL_SIZE * 1.2) + 1;
+    int2float_memory_size = Int2Float_memory_size(table_size);
+    if (NULL == (self->hashmap = PyMem_RawMalloc(int2float_memory_size))) {
+        PyErr_NoMemory();
+        goto error;
     }
-    memset(int2float_memory, 0, int2float_memory_size);
+    memset(self->hashmap, 0, int2float_memory_size);
 
     /* Initialize object attributes */
+    self->release_memory = true;
     self->default_value = default_value;
-    self->hashmap = (Int2FloatHashTable_t*) int2float_memory;
-    self->hashmap->size = size;
+    self->hashmap->size = INT2FLOAT_INITIAL_SIZE;
     self->hashmap->current_size = 0;
     self->hashmap->table_size = table_size;
-    self->hashmap->table = int2float_memory + sizeof(Int2FloatHashTable_t);
+    self->hashmap->readonly = false;
+    self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
+
+    if ((NULL != initializer) &&
+            (Int2Float_update_from_initializer(self, initializer) != 0)) {
+        goto error;
+    }
 
     return (PyObject*) self;
+
+error:
+    Py_XDECREF(default_value);
+    if (NULL != self) {
+        cls->tp_free((PyObject*) self);
+    }
+
+    return NULL;
 }
 
 static void Int2Float_dealloc(Int2Float_t *self) {
-    if (self->default_value != NULL) {
-        Py_DECREF(self->default_value);
+    Py_DECREF(self->default_value);
+    if (self->release_memory && (NULL != self->hashmap)) {
+        PyMem_RawFree(self->hashmap);
     }
-    PyMem_RawFree(self->hashmap);
     Py_TYPE(self)->tp_free((PyObject*) self);
 }
 
 static PyObject* Int2Float_repr(Int2Float_t *self) {
-    if (self->default_value != NULL) {
-        return PyUnicode_FromFormat(
-                "<%s: object at %p, used %zd/%zd, default %A>",
+    if (self->hashmap->readonly) {
+        return PyUnicode_FromFormat("<%s: object at %p, used %zd, read-only>",
                 self->ob_base.ob_type->tp_name, self,
-                self->hashmap->current_size, self->hashmap->size,
-                self->default_value);
+                self->hashmap->current_size);
+    } else {
+        if (self->default_value == Py_None) {
+            return PyUnicode_FromFormat(
+                    "<%s: object at %p, used %zd>",
+                    self->ob_base.ob_type->tp_name, self,
+                    self->hashmap->current_size);
+        } else {
+            return PyUnicode_FromFormat(
+                    "<%s: object at %p, used %zd, default %A>",
+                    self->ob_base.ob_type->tp_name, self,
+                    self->hashmap->current_size, self->default_value);
+        }
     }
-    return PyUnicode_FromFormat("<%s: object at %p, used %zd/%zd>",
-            self->ob_base.ob_type->tp_name, self,
-            self->hashmap->current_size, self->hashmap->size);
 }
 
 static Py_ssize_t Int2Float_len(Int2Float_t *self) {
@@ -1243,15 +1264,19 @@ static PyObject* Int2Float_richcompare(Int2Float_t *self,
     case Py_LT:
         PyErr_SetString(PyExc_TypeError, "'<' is not supported");
         res = NULL;
+        break;
     case Py_LE:
         PyErr_SetString(PyExc_TypeError, "'<=' is not supported");
         res = NULL;
+        break;
     case Py_GT:
         PyErr_SetString(PyExc_TypeError, "'>' is not supported");
         res = NULL;
+        break;
     case Py_GE:
         PyErr_SetString(PyExc_TypeError, "'>=' is not supported");
         res = NULL;
+        break;
     case Py_EQ:
     case Py_NE:
         break;
@@ -1264,7 +1289,7 @@ static PyObject* Int2Float_richcompare(Int2Float_t *self,
             if (other_length == (Py_ssize_t) self->hashmap->current_size) {
                 res = Py_True;
                 for (size_t i = 0; i < self->hashmap->table_size; ++i) {
-                    Int2FloatItem_t item = self->hashmap->table[i];
+                    Int2FloatItem_t item = self->table[i];
 
                     if (item.status == USED) {
                         PyObject *key = NULL;
@@ -1334,7 +1359,7 @@ static PyObject* Int2Float_richcompare(Int2Float_t *self,
     return res;
 }
 
-int Int2Float_contains(Int2Float_t *self, PyObject *key) {
+static int Int2Float_contains(Int2Float_t *self, PyObject *key) {
     unsigned long long c_key;
 
     if (!PyLong_Check(key)) {
@@ -1346,7 +1371,57 @@ int Int2Float_contains(Int2Float_t *self, PyObject *key) {
         return -1;
     }
 
-    return int2float_has(self->hashmap, c_key);
+    return int2float_has(self->hashmap, c_key) == -1 ? 0 : 1;
+}
+
+static int Int2Float_resize_table(Int2Float_t *self) {
+    size_t new_size;
+    size_t new_table_size;
+    size_t new_memory_size;
+    Int2FloatHashTable_t *new_hashmap;
+    Int2FloatItem_t *new_table;
+    Int2FloatItem_t item;
+
+    if (self->hashmap->readonly) {
+        PyErr_SetString(PyExc_RuntimeError, "Instance is read-only");
+        return -1;
+    }
+    if (self->hashmap->current_size < self->hashmap->size) {
+        return 0;
+    }
+
+    new_size = self->hashmap->size * 2;
+    new_table_size = (new_size * 1.2) + 1;
+    new_memory_size = Int2Float_memory_size(new_table_size);
+    new_hashmap = PyMem_RawMalloc(new_memory_size);
+    if (!new_hashmap) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    memset(new_hashmap, 0, new_memory_size);
+
+    new_hashmap->size = new_size;
+    new_hashmap->current_size = 0;
+    new_hashmap->table_size = new_table_size;
+    new_hashmap->readonly = false;
+    new_table = (void*) new_hashmap + sizeof(Int2FloatHashTable_t);
+
+    for (size_t i=0; i<self->hashmap->table_size; ++i) {
+        item = self->table[i];
+        if (item.status == USED) {
+            if (int2float_set(new_hashmap, item.key, item.value) == -1) {
+                PyMem_RawFree(new_hashmap);
+                PyErr_SetString(PyExc_RuntimeError, "Can't resize buffer");
+                return -1;
+            }
+        }
+    }
+
+    PyMem_RawFree(self->hashmap);
+    self->hashmap = new_hashmap;
+    self->table = new_table;
+
+    return 0;
 }
 
 static int Int2Float_setitem(Int2Float_t *self,
@@ -1354,6 +1429,10 @@ static int Int2Float_setitem(Int2Float_t *self,
     unsigned long long c_key;
     double c_value;
 
+    if (self->hashmap->readonly) {
+        PyErr_SetString(PyExc_RuntimeError, "Instance is read-only");
+        return -1;
+    }
     if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
         return -1;
@@ -1364,18 +1443,38 @@ static int Int2Float_setitem(Int2Float_t *self,
     }
 
     if (value == NULL) {
-        PyErr_SetString(PyExc_NotImplementedError, "can't delete item");
-        return -1;
+        /* Delete item */
+        if (int2float_del(self->hashmap, c_key) == -1) {
+            Py_INCREF(key);
+            PyErr_SetObject(PyExc_KeyError, key);
+            return -1;
+        }
     }
-    c_value = PyFloat_AsDouble(value);
-    if ((c_value == -1.0) && (PyErr_Occurred() != NULL)) {
-        PyErr_SetString(PyExc_TypeError, "'value' must be a float");
-        return -1;
-    }
-
-    if (int2float_set(self->hashmap, c_key, c_value) == -1) {
-        PyErr_SetString(PyExc_RuntimeError, "Maximum size has been exceeded");
-        return -1;
+    else {
+        /* Set new or update existing item */
+        if (PyLong_Check(value)) {
+            c_value = PyLong_AsDouble(value);
+            if ((c_value == -1.0) && (PyErr_Occurred() != NULL)) {
+                return -1;
+            }
+        } else {
+            if (!PyFloat_Check(value)) {
+                PyErr_SetString(PyExc_TypeError, "'value' must be a float");
+                return -1;
+            }
+            c_value = PyFloat_AsDouble(value);
+            if ((c_value == -1.0) && (PyErr_Occurred() != NULL)) {
+                return -1;
+            }
+        }
+        if (Int2Float_resize_table(self) == -1) {
+            return -1;
+        }
+        if (int2float_set(self->hashmap, c_key, c_value) == -1) {
+            PyErr_SetString(PyExc_RuntimeError,
+                    "Maximum size has been exceeded");
+            return -1;
+        }
     }
 
     return 0;
@@ -1390,14 +1489,17 @@ static PyObject* Int2Float_getitem(Int2Float_t *self, PyObject *key) {
         return NULL;
     }
     c_key = PyLong_AsUnsignedLongLong(key);
-    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+    if ((c_key == (unsigned long long) -1) && (NULL != PyErr_Occurred())) {
         return NULL;
     }
 
     if (int2float_get(self->hashmap, c_key, &c_value) == -1) {
-        if (self->default_value != NULL) {
+        if (self->default_value != Py_None) {
             c_value = PyFloat_AsDouble(self->default_value);
-            if ((c_value == -1.0) && (PyErr_Occurred() != NULL)) {
+            if ((c_value == -1.0) && (NULL != PyErr_Occurred())) {
+                return NULL;
+            }
+            if (Int2Float_resize_table(self) == -1) {
                 return NULL;
             }
             if (int2float_set(self->hashmap, c_key, c_value) == -1) {
@@ -1426,109 +1528,18 @@ static PyObject* Int2Float_iter(Int2Float_t *self) {
     return (PyObject*) iterator;
 }
 
-static PyObject* Int2Float_reduce(Int2Float_t *self) {
-    PyObject *res = PyTuple_New(3);
-    PyObject *callable = PyObject_GetAttrString((PyObject *) self, "__class__");
-    PyObject *args = PyTuple_New(2);
-    PyObject *state = PyTuple_New(2);
-
-    if ((res != NULL) && (callable != NULL) &&
-            (args != NULL) && (state != NULL)) {
-        /* state */
-        PyTuple_SET_ITEM(state, 0,
-                PyLong_FromSize_t(self->hashmap->current_size));
-        PyTuple_SET_ITEM(state, 1,
-                PyBytes_FromStringAndSize((const char *) self->hashmap->table,
-                        sizeof(Int2FloatItem_t) * self->hashmap->table_size));
-        /* callable args */
-        PyTuple_SET_ITEM(args, 0, PyLong_FromSize_t(self->hashmap->size));
-        if (self->default_value != NULL) {
-            Py_INCREF(self->default_value);
-            PyTuple_SET_ITEM(args, 1, self->default_value);
-        }
-        else {
-            Py_INCREF(Py_None);
-            PyTuple_SET_ITEM(args, 1, Py_None);
-        }
-        /* res */
-        PyTuple_SET_ITEM(res, 0, callable);
-        PyTuple_SET_ITEM(res, 1, args);
-        PyTuple_SET_ITEM(res, 2, state);
-    }
-    else {
-        Py_XDECREF(state);
-        Py_XDECREF(args);
-        Py_XDECREF(callable);
-        Py_CLEAR(res);
-    }
-
-    return res;
-}
-
-static PyObject* Int2Float_setstate(Int2Float_t *self, PyObject *args) {
-    PyObject *res = NULL;
-    PyObject *state;
-    PyObject *current_size;
-    PyObject *table;
-    size_t table_mem_size;
-    Py_buffer table_buffer = { .obj = NULL };
-
-    if (!PyArg_ParseTuple(args, "O", &state)) {
-        goto cleanup;
-    }
-    if (!PyTuple_Check(state)) {
-        goto cleanup;
-    }
-
-    /* self->hashmap->current_size */
-    current_size = PyTuple_GetItem(state, 0);
-    if (current_size == NULL) {
-        goto cleanup;
-    }
-    self->hashmap->current_size = PyLong_AsSize_t(current_size);
-    if (self->hashmap->current_size == (size_t) -1) {
-        goto cleanup;
-    }
-
-    /* self->hashmap->table */
-    table = PyTuple_GetItem(state, 1);
-    if ((table == NULL) || (!PyBytes_Check(table))) {
-        goto cleanup;
-    }
-    if (PyObject_GetBuffer(table, &table_buffer, 0) == -1) {
-        goto cleanup;
-    }
-    table_mem_size = PyBytes_Size(table);
-    if (table_mem_size !=
-            (self->hashmap->table_size * sizeof(Int2FloatItem_t))) {
-        PyErr_SetString(PyExc_RuntimeError, "Invalid pickled state");
-        goto cleanup;
-    }
-    memcpy((void *) self->hashmap->table, table_buffer.buf, table_mem_size);
-    res = Py_None;
-
-cleanup:
-    if (table_buffer.obj != NULL) {
-        PyBuffer_Release(&table_buffer);
-    }
-
-    Py_XINCREF(res);
-    return res;
-}
-
 static PyObject* Int2Float_get(Int2Float_t *self,
         PyObject *args, PyObject *kwds) {
-    char *kwnames[] = {"key", "default", NULL};
     PyObject * key;
-    PyObject * default_value = NULL;
+    PyObject * default_value = Py_None;
     unsigned long long c_key;
     double value;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwnames,
-            &key, &default_value)) {
+    if (!PyArg_ParseTuple(args, "O|O", &key, &default_value)) {
         return NULL;
     }
 
+    /* key argument */
     if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
         return NULL;
@@ -1539,27 +1550,23 @@ static PyObject* Int2Float_get(Int2Float_t *self,
     }
 
     if (int2float_get(self->hashmap, c_key, &value) == -1) {
-        if (default_value == NULL) {
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-        if (PyLong_Check(default_value)) {
-            double c_val = PyLong_AsDouble(default_value);
-            if ((c_val == -1.0) && (PyErr_Occurred() != NULL)) {
-                return NULL;
+        if (default_value != Py_None) {
+            if (PyLong_Check(default_value)) {
+                if (NULL == (default_value = PyNumber_Float(default_value))) {
+                    return NULL;
+                }
+            } else {
+                if (!PyFloat_Check(default_value)) {
+                    PyErr_SetString(PyExc_TypeError,
+                            "'default' must be a float");
+                    return NULL;
+                }
+                Py_INCREF(default_value);
             }
-            default_value = PyFloat_FromDouble(c_val);
-            if (default_value == NULL) {
-                return NULL;
-            }
-        }
-        else {
-            if (!PyFloat_Check(default_value)) {
-                PyErr_SetString(PyExc_TypeError, "'default' must be a float");
-                return NULL;
-            }
+        } else {
             Py_INCREF(default_value);
         }
+
         return default_value;
     }
 
@@ -1602,12 +1609,385 @@ static PyObject* Int2Float_items(Int2Float_t *self) {
     return (PyObject*) iterator;
 }
 
-static PyObject* Int2Float_get_ptr(Int2Float_t *self) {
+static PyObject* Int2Float_pop(Int2Float_t *self, PyObject *args) {
+    PyObject * key;
+    PyObject * default_value = NULL;
+    unsigned long long c_key;
+    double value;
+
+    if (!PyArg_ParseTuple(args, "O|O", &key, &default_value)) {
+        return NULL;
+    }
+    /* key argument */
+    if (!PyLong_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+        return NULL;
+    }
+
+    if (int2float_get(self->hashmap, c_key, &value) == -1) {
+        if (NULL == default_value) {
+            PyErr_SetObject(PyExc_KeyError, key);
+            return NULL;
+        }
+        if (default_value == Py_None) {
+            Py_INCREF(default_value);
+        }
+        else {
+            if (PyLong_Check(default_value)) {
+                if (NULL == (default_value = PyNumber_Float(default_value))) {
+                    return NULL;
+                }
+            } else {
+                if (!PyFloat_Check(default_value)) {
+                    PyErr_SetString(PyExc_TypeError,
+                            "'default' must be float or None");
+                    return NULL;
+                }
+                Py_INCREF(default_value);
+            }
+        }
+        return default_value;
+    }
+
+    int2float_del(self->hashmap, c_key);
+    return PyFloat_FromDouble(value);
+}
+
+static PyObject* Int2Float_popitem(Int2Float_t *self) {
+    Int2FloatItem_t * item;
+    PyObject * res = NULL;
+    PyObject * key = NULL;
+    PyObject * value = NULL;
+
+    for (size_t i=0; i<self->hashmap->table_size; ++i) {
+        item = &(self->table[i]);
+        if (USED == item->status) {
+            if (NULL == (key = PyLong_FromUnsignedLongLong(item->key))) {
+                goto error;
+            }
+            if (NULL == (value = PyFloat_FromDouble(item->value))) {
+                goto error;
+            }
+            if (NULL == (res = PyTuple_New(2))) {
+                goto error;
+            }
+            PyTuple_SET_ITEM(res, 0, key);
+            PyTuple_SET_ITEM(res, 1, value);
+
+            item->status = DELETED;
+            self->hashmap->current_size -= 1;
+
+            return res;
+        }
+    }
+    PyErr_SetString(PyExc_KeyError, "popitem(): mapping is empty");
+
+error:
+    Py_XDECREF(res);
+    Py_XDECREF(key);
+    Py_XDECREF(value);
+
+    return NULL;
+}
+
+static PyObject* Int2Float_clear(Int2Float_t *self) {
+    for (size_t i=0; i<self->hashmap->table_size; ++i) {
+        self->table[i].status = EMPTY;
+    }
+    self->hashmap->current_size = 0;
+
+    Py_RETURN_NONE;
+}
+
+int Int2Float_update_from_initializer(Int2Float_t *self,
+        PyObject *initializer) {
+    PyObject * pairs = NULL;
+    PyObject * pairs_it = NULL;
+    PyObject * pair = NULL;
+    PyObject * item = NULL;
+    int res = -1;
+
+    /* No 'other' argument */
+    if (NULL == initializer) {
+        res = 0;
+        goto cleanup;
+    }
+
+    /* 'other' is mapping */
+    if (NULL != (pairs = PyMapping_Items(initializer))) {
+        if (NULL != (pairs_it = PyObject_GetIter(pairs))) {
+            while (NULL != (pair = PyIter_Next(pairs_it))) {
+                if (Int2Float_setitem(self, PyTuple_GET_ITEM(pair, 0),
+                        PyTuple_GET_ITEM(pair, 1))) {
+                    goto cleanup;
+                }
+                Py_CLEAR(pair);
+            }
+            if (PyErr_Occurred()) {
+                goto cleanup;
+            }
+            res = 0;
+            goto cleanup;
+        }
+    }
+    else {
+        PyErr_Clear();
+    }
+
+    /* 'other' is iterator */
+    if (NULL != (pairs_it = PyObject_GetIter(initializer))) {
+        while (NULL != (item = PyIter_Next(pairs_it))) {
+            /* Check pair */
+            if (NULL == (pair = PySequence_Tuple(item))) {
+                goto error;
+            }
+            if (PySequence_Size(pair) != 2) {
+                goto error;
+            }
+            if (Int2Float_setitem(self, PyTuple_GET_ITEM(pair, 0),
+                    PyTuple_GET_ITEM(pair, 1))) {
+                goto cleanup;
+            }
+            Py_CLEAR(item);
+            Py_CLEAR(pair);
+        }
+        if (PyErr_Occurred()) {
+            goto cleanup;
+        }
+        res = 0;
+        goto cleanup;
+    }
+
+error:
+    PyErr_SetString(PyExc_TypeError,
+            "'initializer' must be mapping or iterator "
+            "over pairs (key, value)");
+
+cleanup:
+    Py_XDECREF(pairs);
+    Py_XDECREF(pairs_it);
+    Py_XDECREF(pair);
+    Py_XDECREF(item);
+
+    return res;
+}
+
+static PyObject* Int2Float_update(Int2Float_t *self, PyObject *args) {
+    PyObject * initializer = NULL;
+
+    if (!PyArg_ParseTuple(args, "|O", &initializer)) {
+        return NULL;
+    }
+    if (Int2Float_update_from_initializer(self, initializer) != 0) {
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+static PyObject* Int2Float_setdefault(Int2Float_t *self, PyObject *args) {
+    PyObject * key;
+    PyObject * default_value = NULL;
+    unsigned long long c_key;
+    double c_value;
+
+    if (!PyArg_ParseTuple(args, "O|O", &key, &default_value)) {
+        return NULL;
+    }
+    /* key argument */
+    if (!PyLong_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
+        return NULL;
+    }
+    c_key = PyLong_AsUnsignedLongLong(key);
+    if ((c_key == (unsigned long long) -1) && (PyErr_Occurred() != NULL)) {
+        return NULL;
+    }
+
+    if (int2float_get(self->hashmap, c_key, &c_value) == -1) {
+        if (Int2Float_setitem(self, key, default_value) == -1) {
+            return NULL;
+        }
+        Py_INCREF(default_value);
+        return default_value;
+    }
+
+    return PyFloat_FromDouble(c_value);
+}
+
+static PyObject* Int2Float_reduce(Int2Float_t *self) {
+    PyObject *res = NULL;
+    PyObject *args = NULL;
+    PyObject *callable = NULL;
+    PyObject *readonly;
+    PyObject *data;
+
+    if (NULL == (res = PyTuple_New(2))) {
+        goto error;
+    }
+    if (NULL == (args = PyTuple_New(6))) {
+        goto error;
+    }
+    if (NULL == (callable = PyObject_GetAttrString(
+            (PyObject *) self, "_from_raw_data"))) {
+        goto error;
+    }
+
+    readonly = self->hashmap->readonly ? Py_True : Py_False;
+    if (NULL == (data = PyBytes_FromStringAndSize(
+            (const char *) self->table,
+            self->hashmap->table_size * sizeof(Int2FloatItem_t)))) {
+        goto error;
+    }
+
+    Py_INCREF(self->default_value);
+    Py_INCREF(readonly);
+
+    PyTuple_SET_ITEM(args, 0, self->default_value);
+    PyTuple_SET_ITEM(args, 1, PyLong_FromSize_t(self->hashmap->size));
+    PyTuple_SET_ITEM(args, 2, PyLong_FromSize_t(self->hashmap->current_size));
+    PyTuple_SET_ITEM(args, 3, PyLong_FromSize_t(self->hashmap->table_size));
+    PyTuple_SET_ITEM(args, 4, readonly);
+    PyTuple_SET_ITEM(args, 5, data);
+
+    PyTuple_SET_ITEM(res, 0, callable);
+    PyTuple_SET_ITEM(res, 1, args);
+
+    return res;
+
+error:
+    Py_XDECREF(res);
+    Py_XDECREF(args);
+    Py_XDECREF(callable);
+
+    return NULL;
+}
+
+static PyObject* Int2Float_from_raw_data(PyTypeObject *cls, PyObject *args) {
+    PyObject *default_value = Py_None;
+    size_t size;
+    size_t current_size;
+    size_t table_size;
+    int readonly;
+    Py_buffer buffer = { .obj = NULL };
+    size_t int2float_memory_size;
+    Int2Float_t *self = NULL;
+    PyObject *res = NULL;
+
+    /* Parse arguments */
+    if (!PyArg_ParseTuple(args, "Onnnpy*", &default_value, &size,
+            &current_size, &table_size, &readonly, &buffer)) {
+        goto error;
+    }
+    /* Validate arguments */
+    if ((default_value != Py_None)
+            && (!PyFloat_Check(default_value) ||
+                    ((PyFloat_AsDouble(default_value) == -1.0)
+                            && PyErr_Occurred()))) {
+        PyErr_SetString(PyExc_TypeError, "'default' must be float");
+        goto error;
+    }
+    if ((size < current_size) || (table_size < size)
+            || ((size_t) buffer.len !=
+                    (table_size * sizeof(Int2FloatItem_t)))) {
+        PyErr_SetString(PyExc_ValueError, "Inconsistent argument's values");
+        goto error;
+    }
+
+    /* Create instance */
+    if (NULL == (self = (Int2Float_t*) cls->tp_alloc(cls, 0))) {
+        goto error;
+    }
+
+    /* Allocate memory for Int2FloatHashTable_t structure and hashtable. At
+       the beginning of block of the memory Int2FloatHashTable_t structure
+       is placed, followed by hashtable (array of Int2FloatItem_t). */
+    int2float_memory_size = Int2Float_memory_size(table_size);
+    if (NULL == (self->hashmap = PyMem_RawMalloc(int2float_memory_size))) {
+        PyErr_NoMemory();
+        goto error;
+    }
+    memset(self->hashmap, 0, int2float_memory_size);
+
+    self->release_memory = true;
+    self->default_value = default_value;
+    self->hashmap->size = size;
+    self->hashmap->current_size = current_size;
+    self->hashmap->table_size = table_size;
+    self->hashmap->readonly = readonly;
+    self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
+    memcpy((void *) self->table, buffer.buf, buffer.len);
+
+    Py_INCREF(self->default_value);
+    res = (PyObject*) self;
+    goto cleanup;
+
+error:
+    if (NULL != self) {
+        cls->tp_free((PyObject*) self);
+    }
+cleanup:
+    if (NULL != buffer.obj) {
+        PyBuffer_Release(&buffer);
+    }
+
+    return res;
+}
+
+static PyObject* Int2Float_from_ptr(PyTypeObject *cls, PyObject *args) {
+    const Py_ssize_t addr;
+    Int2FloatHashTable_t *other;
+    Int2Float_t *self;
+
+    /* Parse addr */
+    if (!PyArg_ParseTuple(args, "n", &addr)) {
+        return NULL;
+    }
+
+    other = (Int2FloatHashTable_t*) addr;
+    /* Check readonly flag */
+    if (!other->readonly) {
+        PyErr_SetString(PyExc_RuntimeError, "Instance must be read-only");
+        return NULL;
+    }
+
+    /* Create instance */
+    self = (Int2Float_t*) cls->tp_alloc(cls, 0);
+    if (!self) {
+        return NULL;
+    }
+    self->default_value = Py_None;
+    self->release_memory = false;
+    self->hashmap = other;
+    self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
+
+    Py_INCREF(self->default_value);
+    return (PyObject*) self;
+}
+
+static PyObject* Int2Float_make_readonly(Int2Float_t *self) {
+    self->hashmap->readonly = true;
+    Py_RETURN_NONE;
+}
+
+static PyObject* Int2Float_get_readonly(Int2Float_t *self) {
+    if (self->hashmap->readonly) {
+        Py_RETURN_TRUE;
+    }
+    else {
+        Py_RETURN_FALSE;
+    }
+}
+
+static PyObject* Int2Float_get_buffer_ptr(Int2Float_t *self) {
     return PyLong_FromVoidPtr(self->hashmap);
 }
 
-static PyObject* Int2Float_get_max_size(Int2Float_t *self) {
-    return PyLong_FromSize_t(self->hashmap->size);
+static PyObject* Int2Float_get_buffer_size(Int2Float_t *self) {
+    return PyLong_FromSize_t(Int2Float_memory_size(self->hashmap->table_size));
 }
 
 static PySequenceMethods Int2Float_sequence_methods = {
@@ -1630,12 +2010,12 @@ static PyMappingMethods Int2Float_mapping_methods = {
 };
 
 static PyMethodDef Int2Float_methods[] = {
-    {"get", (PyCFunction) Int2Float_get, METH_VARARGS | METH_KEYWORDS,
+    {"get", (PyCFunction) Int2Float_get, METH_VARARGS,
             "get(self, key, default=None, /)\n"
             "--\n"
             "\n"
             "Return value for key. If key does not exist, return default\n"
-            "value, otherwise return None."},
+            "value, otherwise return None. default must be float or None."},
     {"keys", (PyCFunction) Int2Float_keys, METH_VARARGS,
             "keys(self, /)\n"
             "--\n"
@@ -1655,28 +2035,73 @@ static PyMethodDef Int2Float_methods[] = {
             "Return an iterator over the hashmaps’s (key, value) tuple\n"
             "pairs. Don't change hashmap during iteration, behavior is\n"
             "undefined!"},
-    {"get_ptr", (PyCFunction) Int2Float_get_ptr, METH_NOARGS,
-            "get_ptr(self, /)\n"
+    {"pop", (PyCFunction) Int2Float_pop, METH_VARARGS,
+            "pop(self, key, default, /)\n"
+             "--\n"
+             "\n"
+            "Return value for key and remove this value from structure.\n"
+            "If key does not exist, return default value, otherwise raise\n"
+            "KeyError exception. default must be float or None."},
+    {"popitem", (PyCFunction) Int2Float_popitem, METH_NOARGS,
+            "popitem(self, /)\n"
             "--\n"
             "\n"
-            "Return pointer to internal Int2FloatHashTable_t structure."},
+            "Return arbitrary (key, value) pair from structure and remove\n"
+            "this item."},
+    {"clear", (PyCFunction) Int2Float_clear, METH_NOARGS,
+            "clear(self, /)\n"
+            "--\n"
+            "\n"
+            "Remove all items from structure."},
+    {"update", (PyCFunction) Int2Float_update, METH_VARARGS,
+            "update(self, initializer, /)\n"
+            "--\n"
+            "\n"
+            "Update mapping with keys and values from initializer,\n"
+            "overwrite existing values. initializer can be either\n"
+            "iterable with (key, value) pairs or mapping."},
+    {"setdefault", (PyCFunction) Int2Float_setdefault, METH_VARARGS,
+            "setdefault(self, key, default, /)\n"
+            "--\n"
+            "\n"
+            "Return value for key. If key does not exist, insert new key\n"
+            "with value default and return this value. If default is not\n"
+            "specified, raise KeyError exception. default must be float.\n"},
+    {"from_ptr", (PyCFunction) Int2Float_from_ptr, METH_VARARGS | METH_CLASS,
+            "from_ptr(self, addr, /)\n"
+            "--\n"
+            "\n"
+            "Return instance created from address pointed to existing\n"
+            "Int2Float memory block."},
+    {"make_readonly", (PyCFunction) Int2Float_make_readonly, METH_NOARGS,
+            "make_readonly(self, /)\n"
+            "--\n"
+            "\n"
+            "Make Int2Float structure as a read-only."},
     {"__reduce__", (PyCFunction) Int2Float_reduce, METH_NOARGS,
             "__setstate__(self, /)\n"
             "--\n"
             "\n"
-            "Return state information for pickling."},
-    {"__setstate__", (PyCFunction) Int2Float_setstate, METH_VARARGS,
-            "__setstate__(self, state, /)\n"
+            "Return reduced value of the instance."},
+    {"_from_raw_data", (PyCFunction) Int2Float_from_raw_data,
+            METH_VARARGS | METH_CLASS,
+            "_from_raw_data(self, ..., /)\n"
             "--\n"
             "\n"
-            "Restore object state when unpickling."},
+            "Return instance created from raw data.\n"
+            "\n"
+            "It is protected method used when object is unpickled, do not \n"
+            "call this method yourself!"},
     {NULL}
 };
 
 static PyGetSetDef Int2Float_getset[] = {
-    {"max_size", (getter) Int2Float_get_max_size, NULL,
-            "upperbound limit on the number of items that can be placed "
-            "in the mapping\n", NULL},
+    {"readonly", (getter) Int2Float_get_readonly, NULL,
+            "Flag that indicates that instance is read-only.", NULL},
+    {"buffer_ptr", (getter) Int2Float_get_buffer_ptr, NULL,
+            "Address of the internal buffer.", NULL},
+    {"buffer_size", (getter) Int2Float_get_buffer_size, NULL,
+            "Size of the internal buffer in bytes.", NULL},
     {NULL}
 };
 
@@ -1701,12 +2126,18 @@ static PyTypeObject Int2Float_type = {
     0,                                                  /* tp_setattro */
     0,                                                  /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags */
-    "Simple fixed-size hashmap which maps int key "     /* tp_doc */
-    "to float value.\n"
+    "Int2Float(self, initializer, default=None, /)\n"   /* tp_doc */
+    "--\n"
     "\n"
-    "Provides pointer to internal C structure and set/get/has functions,\n"
-    "so hashmap is accesible from pure C. Easily fill data in Python and\n"
-    "compute in C or Cython.\n",
+    "Simple fixed-size hashmap which maps int key to float value. Provides\n"
+    "pointer to internal C structure and set/del/get/has functions, so\n"
+    "hashmap is accesible from pure C. Easily fill data in Python and\n"
+    "compute in C or Cython.\n"
+    "\n"
+    "If initializer is specified, instance will be filled from this\n"
+    "initializer. It can be either iterable with (key, value) pairs or\n"
+    "mapping. If default is specified, value of the default will be\n"
+    "returned when key does not exist and will be stored into mapping.",
     0,                                                  /* tp_traverse */
     0,                                                  /* tp_clear */
     (richcmpfunc) Int2Float_richcompare,                /* tp_richcompare */
