@@ -2176,28 +2176,45 @@ static PyModuleDef hashmapmodule = {
 };
 
 PyMODINIT_FUNC PyInit_hashmap(void) {
-    PyObject *module;
+    PyObject *all = NULL;
+    PyObject *module = NULL;
 
-    if ((PyType_Ready(&Int2IntIterator_type) < 0) ||
-            (PyType_Ready(&Int2Int_type) < 0)) {
-        return NULL;
+    if (PyType_Ready(&Int2IntIterator_type)
+            || PyType_Ready(&Int2Int_type)
+            || PyType_Ready(&Int2FloatIterator_type)
+            || PyType_Ready(&Int2Float_type)) {
+        goto error;
     }
 
-    if ((PyType_Ready(&Int2FloatIterator_type) < 0) ||
-            (PyType_Ready(&Int2Float_type) < 0)) {
-        return NULL;
+    if (NULL == (module = PyModule_Create(&hashmapmodule))) {
+        goto error;
     }
 
-    module = PyModule_Create(&hashmapmodule);
-    if (module == NULL) {
-        return NULL;
+    if (NULL == (all = PyList_New(2))) {
+        goto error;
     }
+    PyList_SET_ITEM(all, 0, PyUnicode_FromString("Int2Int"));
+    PyList_SET_ITEM(all, 1, PyUnicode_FromString("Int2Float"));
 
     Py_INCREF(&Int2Int_type);
-    PyModule_AddObject(module, "Int2Int", (PyObject*) &Int2Int_type);
-
+    if (PyModule_AddObject(module, "Int2Int", (PyObject*) &Int2Int_type)) {
+        Py_DECREF(&Int2Int_type);
+        goto error;
+    }
     Py_INCREF(&Int2Float_type);
-    PyModule_AddObject(module, "Int2Float", (PyObject*) &Int2Float_type);
+    if (PyModule_AddObject(module, "Int2Float", (PyObject*) &Int2Float_type)) {
+        Py_DECREF(&Int2Float_type);
+        goto error;
+    }
+    if (PyModule_AddObject(module, "__all__", all)) {
+        goto error;
+    }
 
     return module;
+
+error:
+    Py_XDECREF(module);
+    Py_XDECREF(all);
+
+    return NULL;
 }
