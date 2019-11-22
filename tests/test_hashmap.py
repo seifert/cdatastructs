@@ -42,6 +42,24 @@ def test_int2int_new_when_initializer_is_mapping():
     assert set(int2int_map.items()) == {(1, 101), (2, 102)}
 
 
+def test_int2int_new_when_prealloc_size_kwarg():
+    int2int_map = Int2Int(prealloc_size=1024)
+
+    class Int2IntHashTable_t(ctypes.Structure):
+
+        _fields_ = [
+            ('size', ctypes.c_size_t),
+            ('current_size', ctypes.c_size_t),
+            ('table_size', ctypes.c_size_t),
+            ('readonly', ctypes.c_bool),
+        ]
+
+    t = Int2IntHashTable_t.from_address(int2int_map.buffer_ptr)
+
+    assert t.size == 1024
+    assert t.current_size == 0
+
+
 @pytest.mark.parametrize(
     'other, exc, msg',
     [
@@ -135,7 +153,6 @@ def test_int2int_repr_when_readonly(int2int_map):
         r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
         r'used 1, read-only\>',
         repr(int2int_map))
-    print(repr(int2int_map))
     assert m is not None
 
 
@@ -825,6 +842,24 @@ def test_int2float_new_when_initializer_is_mapping():
     assert set(int2float_map.items()) == {(1, 101.0), (2, 102.0)}
 
 
+def test_int2float_new_when_prealloc_size_kwarg():
+    int2float_map = Int2Float(prealloc_size=1024)
+
+    class Int2FloatHashTable_t(ctypes.Structure):
+
+        _fields_ = [
+            ('size', ctypes.c_size_t),
+            ('current_size', ctypes.c_size_t),
+            ('table_size', ctypes.c_size_t),
+            ('readonly', ctypes.c_bool),
+        ]
+
+    t = Int2FloatHashTable_t.from_address(int2float_map.buffer_ptr)
+
+    assert t.size == 1024
+    assert t.current_size == 0
+
+
 @pytest.mark.parametrize(
     'other, exc, msg',
     [
@@ -911,7 +946,6 @@ def test_int2float_repr_when_readonly(int2float_map):
         r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
         r'used 1, read-only\>',
         repr(int2float_map))
-    print(repr(int2float_map))
     assert m is not None
 
 

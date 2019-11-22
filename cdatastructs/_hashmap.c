@@ -50,8 +50,6 @@ typedef struct {
 
 static PyTypeObject Int2Int_type;
 
-static const size_t INT2INT_INITIAL_SIZE = 8;
-
 /* Int2Int iterator */
 
 static PyObject* Int2IntIterator_next(HashmapIterator_t *self) {
@@ -97,26 +95,21 @@ static PyTypeObject Int2IntIterator_type = {
 
 /* Int2Int */
 
-static inline size_t Int2Int_memory_size(const size_t ncount) {
-    return sizeof(Int2IntHashTable_t) + (ncount * sizeof(Int2IntItem_t));
-}
-
 static int Int2Int_update_from_initializer(Int2Int_t *self,
         PyObject *initializer);
 
 static PyObject* Int2Int_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
 
-    char *kwnames[] = {"initializer", "default", NULL};
+    char *kwnames[] = {"initializer", "default", "prealloc_size", NULL};
     PyObject *initializer = NULL;
     PyObject *default_value = Py_None;
+    unsigned int prealloc_size = INT2INT_INITIAL_SIZE;
     Int2Int_t *self = NULL;
-    size_t table_size;
-    size_t int2int_memory_size;
 
     /* Parse arguments */
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$O", kwnames,
-            &initializer, &default_value)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$OI", kwnames,
+            &initializer, &default_value, &prealloc_size)) {
         goto error;
     }
     /* Validate arguments */
@@ -136,21 +129,13 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
     /* Allocate memory for Int2IntHashTable_t structure and hashtable. At
        the beginning of block of the memory Int2IntHashTable_t structure
        is placed, followed by hashtable (array of Int2IntItem_t). */
-    table_size = (INT2INT_INITIAL_SIZE * 1.2) + 1;
-    int2int_memory_size = Int2Int_memory_size(table_size);
-    if (NULL == (self->hashmap = PyMem_RawMalloc(int2int_memory_size))) {
+    if (int2int_new(prealloc_size, &self->hashmap)) {
         PyErr_NoMemory();
         goto error;
     }
-    memset(self->hashmap, 0, int2int_memory_size);
-
     /* Initialize object attributes */
     self->release_memory = true;
     self->default_value = default_value;
-    self->hashmap->size = INT2INT_INITIAL_SIZE;
-    self->hashmap->current_size = 0;
-    self->hashmap->table_size = table_size;
-    self->hashmap->readonly = false;
     self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
 
     if ((NULL != initializer) &&
@@ -172,7 +157,7 @@ error:
 static void Int2Int_dealloc(Int2Int_t *self) {
     Py_DECREF(self->default_value);
     if (self->release_memory && (NULL != self->hashmap)) {
-        PyMem_RawFree(self->hashmap);
+        free(self->hashmap);
     }
     Py_TYPE(self)->tp_free((PyObject*) self);
 }
@@ -319,59 +304,10 @@ static int Int2Int_contains(Int2Int_t *self, PyObject *key) {
     return int2int_has(self->hashmap, c_key) == -1 ? 0 : 1;
 }
 
-static int Int2Int_resize_table(Int2Int_t *self) {
-    size_t new_size;
-    size_t new_table_size;
-    size_t new_memory_size;
-    Int2IntHashTable_t *new_hashmap;
-    Int2IntItem_t *new_table;
-    Int2IntItem_t item;
-
-    if (self->hashmap->readonly) {
-        PyErr_SetString(PyExc_RuntimeError, "Instance is read-only");
-        return -1;
-    }
-    if (self->hashmap->current_size < self->hashmap->size) {
-        return 0;
-    }
-
-    new_size = self->hashmap->size * 2;
-    new_table_size = (new_size * 1.2) + 1;
-    new_memory_size = Int2Int_memory_size(new_table_size);
-    new_hashmap = PyMem_RawMalloc(new_memory_size);
-    if (!new_hashmap) {
-        PyErr_NoMemory();
-        return -1;
-    }
-    memset(new_hashmap, 0, new_memory_size);
-
-    new_hashmap->size = new_size;
-    new_hashmap->current_size = 0;
-    new_hashmap->table_size = new_table_size;
-    new_hashmap->readonly = false;
-    new_table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
-
-    for (size_t i=0; i<self->hashmap->table_size; ++i) {
-        item = self->table[i];
-        if (item.status == USED) {
-            if (int2int_set(new_hashmap, item.key, item.value) == -1) {
-                PyMem_RawFree(new_hashmap);
-                PyErr_SetString(PyExc_RuntimeError, "Can't resize buffer");
-                return -1;
-            }
-        }
-    }
-
-    PyMem_RawFree(self->hashmap);
-    self->hashmap = new_hashmap;
-    self->table = new_table;
-
-    return 0;
-}
-
 static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
     unsigned long long c_key;
     size_t c_value;
+    Int2IntHashTable_t * new_hashmap;
 
     if (self->hashmap->readonly) {
         PyErr_SetString(PyExc_RuntimeError, "Instance is read-only");
@@ -405,13 +341,13 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
             return -1;
         }
 
-        if (Int2Int_resize_table(self) == -1) {
+        if (int2int_set(self->hashmap, c_key, c_value, &new_hashmap)) {
+            PyErr_NoMemory();
             return -1;
         }
-        if (int2int_set(self->hashmap, c_key, c_value) == -1) {
-            PyErr_SetString(PyExc_RuntimeError,
-                    "Maximum size has been exceeded");
-            return -1;
+        if (new_hashmap != self->hashmap) {
+            self->hashmap = new_hashmap;
+            self->table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
         }
     }
 
@@ -421,6 +357,7 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
 static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
     unsigned long long c_key;
     size_t c_value;
+    Int2IntHashTable_t * new_hashmap;
 
     if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
@@ -437,13 +374,13 @@ static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
             if ((c_value == (size_t) -1) && (NULL != PyErr_Occurred())) {
                 return NULL;
             }
-            if (Int2Int_resize_table(self) == -1) {
+            if (int2int_set(self->hashmap, c_key, c_value, &new_hashmap)) {
+                PyErr_NoMemory();
                 return NULL;
             }
-            if (int2int_set(self->hashmap, c_key, c_value) == -1) {
-                PyErr_SetString(PyExc_RuntimeError,
-                        "Maximum size has been exceeded");
-                return NULL;
+            if (new_hashmap != self->hashmap) {
+                self->hashmap = new_hashmap;
+                self->table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
             }
             Py_INCREF(self->default_value);
             return self->default_value;
@@ -830,8 +767,8 @@ static PyObject* Int2Int_from_raw_data(PyTypeObject *cls, PyObject *args) {
     /* Allocate memory for Int2IntHashTable_t structure and hashtable. At
        the beginning of block of the memory Int2IntHashTable_t structure
        is placed, followed by hashtable (array of Int2IntItem_t). */
-    int2int_memory_size = Int2Int_memory_size(table_size);
-    if (NULL == (self->hashmap = PyMem_RawMalloc(int2int_memory_size))) {
+    int2int_memory_size = INT2INT_MEMORY_SIZE(table_size);
+    if (NULL == (self->hashmap = malloc(int2int_memory_size))) {
         PyErr_NoMemory();
         goto error;
     }
@@ -912,7 +849,7 @@ static PyObject* Int2Int_get_buffer_ptr(Int2Int_t *self) {
 }
 
 static PyObject* Int2Int_get_buffer_size(Int2Int_t *self) {
-    return PyLong_FromSize_t(Int2Int_memory_size(self->hashmap->table_size));
+    return PyLong_FromSize_t(INT2INT_MEMORY_SIZE(self->hashmap->table_size));
 }
 
 static PySequenceMethods Int2Int_sequence_methods = {
@@ -1096,8 +1033,6 @@ typedef struct {
 
 static PyTypeObject Int2Float_type;
 
-static const size_t INT2FLOAT_INITIAL_SIZE = 8;
-
 /* Int2Float iterator */
 
 static PyObject* Int2FloatIterator_next(HashmapIterator_t *self) {
@@ -1143,26 +1078,21 @@ static PyTypeObject Int2FloatIterator_type = {
 
 /* Int2Float */
 
-static inline size_t Int2Float_memory_size(const size_t ncount) {
-    return sizeof(Int2FloatHashTable_t) + (ncount * sizeof(Int2FloatItem_t));
-}
-
 static int Int2Float_update_from_initializer(Int2Float_t *self,
         PyObject *initializer);
 
 static PyObject* Int2Float_new(PyTypeObject *cls,
         PyObject *args, PyObject *kwds) {
 
-    char *kwnames[] = {"initializer", "default", NULL};
+    char *kwnames[] = {"initializer", "default", "prealloc_size", NULL};
     PyObject *initializer = NULL;
     PyObject *default_value = NULL;
+    unsigned int prealloc_size = INT2FLOAT_INITIAL_SIZE;
     Int2Float_t *self = NULL;
-    size_t table_size;
-    size_t int2float_memory_size;
 
     /* Parse arguments */
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$O", kwnames,
-            &initializer, &default_value)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$OI", kwnames,
+            &initializer, &default_value, &prealloc_size)) {
         goto error;
     }
     /* Validate arguments */
@@ -1193,21 +1123,14 @@ static PyObject* Int2Float_new(PyTypeObject *cls,
     /* Allocate memory for Int2FloatHashTable_t structure and hashtable. At
        the beginning of block of the memory Int2FloatHashTable_t structure
        is placed, followed by hashtable (array of Int2FloatItem_t). */
-    table_size = (INT2FLOAT_INITIAL_SIZE * 1.2) + 1;
-    int2float_memory_size = Int2Float_memory_size(table_size);
-    if (NULL == (self->hashmap = PyMem_RawMalloc(int2float_memory_size))) {
+    if (int2float_new(prealloc_size, &self->hashmap)) {
         PyErr_NoMemory();
         goto error;
     }
-    memset(self->hashmap, 0, int2float_memory_size);
 
     /* Initialize object attributes */
     self->release_memory = true;
     self->default_value = default_value;
-    self->hashmap->size = INT2FLOAT_INITIAL_SIZE;
-    self->hashmap->current_size = 0;
-    self->hashmap->table_size = table_size;
-    self->hashmap->readonly = false;
     self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
 
     if ((NULL != initializer) &&
@@ -1229,7 +1152,7 @@ error:
 static void Int2Float_dealloc(Int2Float_t *self) {
     Py_DECREF(self->default_value);
     if (self->release_memory && (NULL != self->hashmap)) {
-        PyMem_RawFree(self->hashmap);
+        free(self->hashmap);
     }
     Py_TYPE(self)->tp_free((PyObject*) self);
 }
@@ -1377,60 +1300,11 @@ static int Int2Float_contains(Int2Float_t *self, PyObject *key) {
     return int2float_has(self->hashmap, c_key) == -1 ? 0 : 1;
 }
 
-static int Int2Float_resize_table(Int2Float_t *self) {
-    size_t new_size;
-    size_t new_table_size;
-    size_t new_memory_size;
-    Int2FloatHashTable_t *new_hashmap;
-    Int2FloatItem_t *new_table;
-    Int2FloatItem_t item;
-
-    if (self->hashmap->readonly) {
-        PyErr_SetString(PyExc_RuntimeError, "Instance is read-only");
-        return -1;
-    }
-    if (self->hashmap->current_size < self->hashmap->size) {
-        return 0;
-    }
-
-    new_size = self->hashmap->size * 2;
-    new_table_size = (new_size * 1.2) + 1;
-    new_memory_size = Int2Float_memory_size(new_table_size);
-    new_hashmap = PyMem_RawMalloc(new_memory_size);
-    if (!new_hashmap) {
-        PyErr_NoMemory();
-        return -1;
-    }
-    memset(new_hashmap, 0, new_memory_size);
-
-    new_hashmap->size = new_size;
-    new_hashmap->current_size = 0;
-    new_hashmap->table_size = new_table_size;
-    new_hashmap->readonly = false;
-    new_table = (void*) new_hashmap + sizeof(Int2FloatHashTable_t);
-
-    for (size_t i=0; i<self->hashmap->table_size; ++i) {
-        item = self->table[i];
-        if (item.status == USED) {
-            if (int2float_set(new_hashmap, item.key, item.value) == -1) {
-                PyMem_RawFree(new_hashmap);
-                PyErr_SetString(PyExc_RuntimeError, "Can't resize buffer");
-                return -1;
-            }
-        }
-    }
-
-    PyMem_RawFree(self->hashmap);
-    self->hashmap = new_hashmap;
-    self->table = new_table;
-
-    return 0;
-}
-
 static int Int2Float_setitem(Int2Float_t *self,
         PyObject *key, PyObject *value) {
     unsigned long long c_key;
     double c_value;
+    Int2FloatHashTable_t * new_hashmap;
 
     if (self->hashmap->readonly) {
         PyErr_SetString(PyExc_RuntimeError, "Instance is read-only");
@@ -1470,13 +1344,13 @@ static int Int2Float_setitem(Int2Float_t *self,
                 return -1;
             }
         }
-        if (Int2Float_resize_table(self) == -1) {
+        if (int2float_set(self->hashmap, c_key, c_value, &new_hashmap)) {
+            PyErr_NoMemory();
             return -1;
         }
-        if (int2float_set(self->hashmap, c_key, c_value) == -1) {
-            PyErr_SetString(PyExc_RuntimeError,
-                    "Maximum size has been exceeded");
-            return -1;
+        if (new_hashmap != self->hashmap) {
+            self->hashmap = new_hashmap;
+            self->table = (void*) new_hashmap + sizeof(Int2FloatHashTable_t);
         }
     }
 
@@ -1486,6 +1360,7 @@ static int Int2Float_setitem(Int2Float_t *self,
 static PyObject* Int2Float_getitem(Int2Float_t *self, PyObject *key) {
     unsigned long long c_key;
     double c_value;
+    Int2FloatHashTable_t * new_hashmap;
 
     if (!PyLong_Check(key)) {
         PyErr_SetString(PyExc_TypeError, "'key' must be an integer");
@@ -1502,13 +1377,14 @@ static PyObject* Int2Float_getitem(Int2Float_t *self, PyObject *key) {
             if ((c_value == -1.0) && (NULL != PyErr_Occurred())) {
                 return NULL;
             }
-            if (Int2Float_resize_table(self) == -1) {
+            if (int2float_set(self->hashmap, c_key, c_value, &new_hashmap)) {
+                PyErr_NoMemory();
                 return NULL;
             }
-            if (int2float_set(self->hashmap, c_key, c_value) == -1) {
-                PyErr_SetString(PyExc_RuntimeError,
-                        "Maximum size has been exceeded");
-                return NULL;
+            if (new_hashmap != self->hashmap) {
+                self->hashmap = new_hashmap;
+                self->table = (void*) new_hashmap
+                        + sizeof(Int2FloatHashTable_t);
             }
             Py_INCREF(self->default_value);
             return self->default_value;
@@ -1908,8 +1784,8 @@ static PyObject* Int2Float_from_raw_data(PyTypeObject *cls, PyObject *args) {
     /* Allocate memory for Int2FloatHashTable_t structure and hashtable. At
        the beginning of block of the memory Int2FloatHashTable_t structure
        is placed, followed by hashtable (array of Int2FloatItem_t). */
-    int2float_memory_size = Int2Float_memory_size(table_size);
-    if (NULL == (self->hashmap = PyMem_RawMalloc(int2float_memory_size))) {
+    int2float_memory_size = INT2FLOAT_MEMORY_SIZE(table_size);
+    if (NULL == (self->hashmap = malloc(int2float_memory_size))) {
         PyErr_NoMemory();
         goto error;
     }
@@ -1990,7 +1866,7 @@ static PyObject* Int2Float_get_buffer_ptr(Int2Float_t *self) {
 }
 
 static PyObject* Int2Float_get_buffer_size(Int2Float_t *self) {
-    return PyLong_FromSize_t(Int2Float_memory_size(self->hashmap->table_size));
+    return PyLong_FromSize_t(INT2FLOAT_MEMORY_SIZE(self->hashmap->table_size));
 }
 
 static PySequenceMethods Int2Float_sequence_methods = {

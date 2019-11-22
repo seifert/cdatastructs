@@ -21,9 +21,14 @@ cdef extern from "hashmap.h":
         size_t table_size
         bool readonly
 
+    cdef int int2int_new(
+        const size_t size,
+        Int2IntHashTable_t ** new_ctx)
+
     cdef int int2int_set(
-        Int2IntHashTable_t * const ctx,
-        const unsigned long long key, const size_t value)
+        Int2IntHashTable_t * ctx,
+        const unsigned long long key, const size_t value,
+        Int2IntHashTable_t ** new_ctx)
 
     cdef int int2int_del(
         Int2IntHashTable_t * const ctx,
@@ -53,9 +58,14 @@ cdef extern from "hashmap.h":
         size_t table_size
         bool readonly
 
+    cdef int int2float_new(
+        const size_t size,
+        Int2FloatHashTable_t ** new_ctx)
+
     cdef int int2float_set(
-        Int2FloatHashTable_t * const ctx,
-        const unsigned long long key, const double value)
+        Int2FloatHashTable_t * ctx,
+        const unsigned long long key, const double value,
+        Int2FloatHashTable_t ** new_ctx)
 
     cdef int int2float_del(
         Int2FloatHashTable_t * const ctx,
