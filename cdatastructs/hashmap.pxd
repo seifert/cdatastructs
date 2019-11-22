@@ -1,4 +1,6 @@
 
+from libcpp cimport bool
+
 cdef extern from "hashmap.h":
 
     ctypedef enum ItemStatus_e:
@@ -33,7 +35,7 @@ cdef extern from "hashmap.h":
 
     cdef int int2int_ptr(
         const Int2IntHashTable_t * const ctx,
-        const unsigned long long key, size_t ** const value)
+        const unsigned long long key, size_t ** value)
 
     cdef int int2int_has(
         const Int2IntHashTable_t * const ctx, const unsigned long long key)
@@ -65,7 +67,7 @@ cdef extern from "hashmap.h":
 
     cdef int int2float_ptr(
         const Int2FloatHashTable_t * const ctx,
-        const unsigned long long key, size_t ** const value)
+        const unsigned long long key, double ** value)
 
     cdef int int2float_has(
         const Int2FloatHashTable_t * const ctx,
