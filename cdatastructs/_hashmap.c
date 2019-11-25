@@ -988,7 +988,8 @@ static PyTypeObject Int2Int_type = {
     0,                                                  /* tp_setattro */
     0,                                                  /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags */
-    "Int2Int(self, initializer, default=None, /)\n"     /* tp_doc */
+    "Int2Int(self, initializer, default=None, "         /* tp_doc */
+    "prealloc_size=None, /)\n"
     "--\n"
     "\n"
     "Simple fixed-size hashmap which maps int key to int value. Provides\n"
@@ -999,7 +1000,9 @@ static PyTypeObject Int2Int_type = {
     "If initializer is specified, instance will be filled from this\n"
     "initializer. It can be either iterable with (key, value) pairs or\n"
     "mapping. If default is specified, value of the default will be\n"
-    "returned when key does not exist and will be stored into mapping.",
+    "returned when key does not exist and will be stored into mapping.\n"
+    "If prealloc_size is specified, memory for hashmap table will be\n"
+    "allocated for this amount of items.",
     0,                                                  /* tp_traverse */
     0,                                                  /* tp_clear */
     (richcmpfunc) Int2Int_richcompare,                  /* tp_richcompare */
@@ -2005,7 +2008,8 @@ static PyTypeObject Int2Float_type = {
     0,                                                  /* tp_setattro */
     0,                                                  /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags */
-    "Int2Float(self, initializer, default=None, /)\n"   /* tp_doc */
+    "Int2Float(self, initializer, default=None, "       /* tp_doc */
+    "prealloc_size=None, /)\n"
     "--\n"
     "\n"
     "Simple fixed-size hashmap which maps int key to float value. Provides\n"
@@ -2016,7 +2020,9 @@ static PyTypeObject Int2Float_type = {
     "If initializer is specified, instance will be filled from this\n"
     "initializer. It can be either iterable with (key, value) pairs or\n"
     "mapping. If default is specified, value of the default will be\n"
-    "returned when key does not exist and will be stored into mapping.",
+    "returned when key does not exist and will be stored into mapping.\n"
+    "If prealloc_size is specified, memory for hashmap table will be\n"
+    "allocated for this amount of items.",
     0,                                                  /* tp_traverse */
     0,                                                  /* tp_clear */
     (richcmpfunc) Int2Float_richcompare,                /* tp_richcompare */
