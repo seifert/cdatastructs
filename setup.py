@@ -23,14 +23,24 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
+_description = (
+    'Simple data structures accessible from both Python and C. '
+    'Data in structures are stored as a primitive C types, so in '
+    'C you can compute data without Python overhead.'
+)
+
+try:
+    _long_description = open('README.rst', 'rb').read().decode('utf-8')
+    _long_description_content_type = 'text/x-rst'
+except IOError:
+    _long_description = _description
+    _long_description_content_type = 'text/plain'
+
 setup(
     name='cdatastructs',
-    description='Simple data structures accessible from both Python and C.',
-    long_description=(
-        'Simple data structures accessible from both Python and C. '
-        'Data in structures are stored as a primitive C types, so in '
-        'C you can compute data without Python overhead.'),
-    long_description_content_type='text/plain',
+    description=_description,
+    long_description=_long_description,
+    long_description_content_type=_long_description_content_type,
     version=VERSION,
     author='Jan Seifert',
     author_email='jan.seifert@fotkyzcest.net',
@@ -42,6 +52,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     packages=find_packages(exclude=['tests*']),
     include_package_data=True,
