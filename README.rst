@@ -9,43 +9,45 @@ Python code:
 
 ::
 
+    >>> import array
+    >>> import itertools
+    >>> import math
+    >>> import random
+
     >>> from cdatastructs.hashmap import Int2Int
 
-    >>> id2index = Int2Int(1000)
+    >>> from my_c_extension import calculate_data
 
+	# Create instance of the Int2Int, it will be mapping from ID
+	# to position in array
+    >>> id2index = Int2Int()
+
+    # Instance of the id2index is mapping, so you can use it same as dict
     >>> id2index[72351277] = 0
     >>> id2index[98092127498] = 1
     >>> id2index[126987499] = 2
     >>> id2index[36] = 3
     >>> id2index[980980] = 4
-    ...
-    >>> id2index[9534875] = 999
     >>> len(id2index)
-    1000
+    5
     >>> id2index[980980]
     4
-    >>> id2index.get_ptr()
-    140329067037264
+    >>> id2index.buffer_ptr
+    94691713534960
 
+    # Prepare two arrays with numbers for calculate and one array for results
+    >>> a = array.array('d', (random.random() for _ in id2index))
+    >>> b = array.array('d', (random.random() for _ in id2index))
+    >>> results = array.array('d', (math.nan for _ in id2index))
 
-    >>> import array
-    >>> from my_c_extension import some_func
+    # Calculate data for IDs 98092127498, 126987499 and 36
+    >>> ids = array.array('Q', [98092127498, 126987499, 36])
+    >>> calculate_data(id2index, ids, a, b, results)
 
-    >>> a = array.array('d', (random.random() for i in range(1000)))
-    >>> b = array.array('d', (random.random() for i in range(1000)))
-    >>> c = array.array('d', 0 for i in range(1000)))
-    >>> ids = array.array('Q', [98092127498, 980980, 36])
-
-    >>> c[id2index[72351277]]
-    0.0
-    >>> c[id2index[98092127498]]
-    0.0
-
-    >>> some_func(id2index, ids, a, b, c)
-
-    >>> c[id2index[72351277]]
-    0.0
-    >>> c[id2index[98092127498]]
+	# Obtaint results
+    >>> results[id2index[72351277]]
+    nan
+    >>> results[id2index[98092127498]]
     0.8163673050897404
 
 C code:
@@ -54,34 +56,37 @@ C code:
 
     #include <hashmap.h>
 
-    static void compute_data(Int2IntHashTable_t * id2idx,
-            unsigned long long * ids, size_t ids_count,
-            double * x, double * y, double * z) {
-
-        for (size_t i=0; i<ids_count; ++i) {
-            size_t idx = int2int_get(id2idx, ids[i]);
-            z[idx] = x[idx] + y[idx];
-        }
-    }
-
     static PyObject * my_c_extension_compute_data(
-            PyObject * id2index, PyObject * args) {
+            PyObject *id2index, PyObject *args) {
 
-        Int2IntHashTable_t *id2idx;
+        Int2IntHashTable_t *id2position;
         unsigned long long *ids;
         size_t *ids_count;
-        double *x;
-        double *y;
-        double *z;
+        double *a;
+        double *b;
+        double *res;
 
-        // There is only one Python overhead - parse args, acquire pointers
-        // to buffers which contain data and cast them to C types.
+        // Parse args, obtain pointers to buffers and cast them to C types
         ...
 
-        compute_data(id2idx, ids, ids_count, x, y, z);
+        // Calculate data, there are only pure C types, no Python overhead
+        for (size_t i=0; i<ids_count; ++i) {
+            unsigned long long id = ids[i];
+            size_t *position;
+            if (int2int_get(id2position, id, position) != 0) {
+                goto error;
+            }
+            res[*position] = a[*position] + b[*position];
+        }
 
+        ...
         Py_RETURN_NONE;
+    error:
+        ...
+        return NULL;
     }
+
+See ``demos/`` for more examples and details.
 
 License
 -------
