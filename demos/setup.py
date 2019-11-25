@@ -1,25 +1,51 @@
 
-from setuptools import setup, find_packages
+import os.path
 
-from cdatastructs import __version__ as VERSION
+from setuptools import setup, Extension
 
+from cdatastructs import get_c_sources_dir, __version__ as VERSION
+
+
+_author = 'Jan Seifert'
+_author_email = 'jan.seifert@fotkyzcest.net'
+_license = 'BSD'
 
 setup(
-    name='shmdemo',
+    name='cdatastructs-c-module-example',
+    description='cdatastructs - demo how to use hashmap for fast computing',
+    version=VERSION,
+    author=_author,
+    author_email=_author_email,
+    license=_license,
+    packages=['c_module_example'],
+    install_requires=[
+        'cdatastructs',
+    ],
+    ext_modules=[
+        Extension(
+            'c_module_example.computer',
+            include_dirs=[get_c_sources_dir()],
+            sources=[
+                'c_module_example/computer.c',
+                os.path.join(get_c_sources_dir(), 'hashmap.c'),
+            ],
+        ),
+    ],
+    entry_points={
+        'console_scripts': [
+            'c-module-example = c_module_example.main:main',
+        ],
+    },
+)
+
+setup(
+    name='cdatastructs-shmdemo',
     description='cdatastructs - demo how to use hashmap in shared memory',
     version=VERSION,
-    author='Jan Seifert',
-    author_email='jan.seifert@fotkyzcest.net',
-    license='BSD',
-    classifiers=[
-        'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: BSD License',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-    ],
-    packages=find_packages(),
+    author=_author,
+    author_email=_author_email,
+    license=_license,
+    packages=['shmdemo'],
     zip_safe=True,
     install_requires=[
         'cdatastructs',
@@ -28,6 +54,6 @@ setup(
     entry_points={
         'console_scripts': [
             'shmdemo = shmdemo.mainprocess:main',
-        ]
+        ],
     },
 )
