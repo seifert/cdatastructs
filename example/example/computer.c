@@ -1,49 +1,67 @@
 
 #include <Python.h>
+
 #include "hashmap.h"
 
 static PyObject* sum(PyObject *self, PyObject *args) {
     Py_buffer ids;
-    unsigned long long m_addr;
+    size_t ids_size;
+    unsigned long long *p_ids;
+    unsigned long long id2pos_addr;
+    Int2IntHashTable_t *id2pos;
     Py_buffer a;
+    double *p_a;
     Py_buffer b;
+    double *p_b;
     Py_buffer res;
-    size_t idx;
+    double *p_res;
+    unsigned long long current_id;
+    size_t current_position;
 
-    if (!PyArg_ParseTuple(args, "y*Ky*y*w*", &ids, &m_addr, &a, &b, &res)) {
+    if (!PyArg_ParseTuple(args, "y*Ky*y*w*",
+            &ids, &id2pos_addr, &a, &b, &res)) {
         return NULL;
     }
 
-    unsigned long long * c_ids = (unsigned long long *) ids.buf;
-    Py_ssize_t c_ids_size = ids.len / ids.itemsize;
-    Int2IntHashTable_t * m = (Int2IntHashTable_t *) m_addr;
-    double *c_a = (double *) a.buf;
-    double *c_b = (double *) b.buf;
-    double *c_res = (double *) res.buf;
+    /* Obtain pointers to structures */
+    p_ids = (unsigned long long *) ids.buf;
+    ids_size = ids.len / ids.itemsize;
+    id2pos = (Int2IntHashTable_t *) id2pos_addr;
+    p_a = (double *) a.buf;
+    p_b = (double *) b.buf;
+    p_res = (double *) res.buf;
 
-    /* Compute - only pure C types, no Python overhead */
-    for (Py_ssize_t i=0; i<c_ids_size; ++i) {
-        if (int2int_get(m, c_ids[i], &idx) == -1) {
-            PyErr_Format(PyExc_KeyError, "%llu", c_ids[i]);
-            break;
+    /* Calculate - there are only pure C types, no Python overhead */
+    for (size_t i=0; i<ids_size; ++i) {
+        current_id = p_ids[i];
+        if (int2int_get(id2pos, current_id, &current_position) != 0) {
+            goto error;
         }
-        c_res[idx] = c_a[idx] + c_b[idx];
+        p_res[current_position] = p_a[current_position] + p_b[current_position];
     }
-    /* Compute - end */
 
+    /* Release buffers */
     PyBuffer_Release(&res);
     PyBuffer_Release(&b);
     PyBuffer_Release(&a);
     PyBuffer_Release(&ids);
 
-    if (PyErr_Occurred()) {
-        return NULL;
-    }
     Py_RETURN_NONE;
+
+error:
+    /* Release buffers  and set exception */
+    PyBuffer_Release(&res);
+    PyBuffer_Release(&b);
+    PyBuffer_Release(&a);
+    PyBuffer_Release(&ids);
+
+    PyErr_Format(PyExc_KeyError, "%llu", current_id);
+    return NULL;
 }
 
 static PyMethodDef computer_methods[] = {
-    {"sum", sum, METH_VARARGS, "sum(int2int, a, b, res)"},
+    {"sum", sum, METH_VARARGS,
+            "sum(ids, int2int, array_a, array_b, array_result)"},
     {NULL, NULL, 0, NULL}
 };
 
