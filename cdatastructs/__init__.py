@@ -3,7 +3,7 @@ cdatastructs module provides simple data structures accessible from both
 Python and C.
 """
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 
 def get_c_sources_dir():
