@@ -801,18 +801,10 @@ cleanup:
 
 static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     const Py_ssize_t addr;
-    Int2IntHashTable_t *other;
     Int2Int_t *self;
 
     /* Parse addr */
     if (!PyArg_ParseTuple(args, "n", &addr)) {
-        return NULL;
-    }
-
-    other = (Int2IntHashTable_t*) addr;
-    /* Check readonly flag */
-    if (!other->readonly) {
-        PyErr_SetString(PyExc_RuntimeError, "Instance must be read-only");
         return NULL;
     }
 
@@ -823,7 +815,7 @@ static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     }
     self->default_value = Py_None;
     self->release_memory = false;
-    self->hashmap = other;
+    self->hashmap = (Int2IntHashTable_t*) addr;
     self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
 
     Py_INCREF(self->default_value);
@@ -1821,18 +1813,10 @@ cleanup:
 
 static PyObject* Int2Float_from_ptr(PyTypeObject *cls, PyObject *args) {
     const Py_ssize_t addr;
-    Int2FloatHashTable_t *other;
     Int2Float_t *self;
 
     /* Parse addr */
     if (!PyArg_ParseTuple(args, "n", &addr)) {
-        return NULL;
-    }
-
-    other = (Int2FloatHashTable_t*) addr;
-    /* Check readonly flag */
-    if (!other->readonly) {
-        PyErr_SetString(PyExc_RuntimeError, "Instance must be read-only");
         return NULL;
     }
 
@@ -1843,7 +1827,7 @@ static PyObject* Int2Float_from_ptr(PyTypeObject *cls, PyObject *args) {
     }
     self->default_value = Py_None;
     self->release_memory = false;
-    self->hashmap = other;
+    self->hashmap = (Int2FloatHashTable_t*) addr;
     self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
 
     Py_INCREF(self->default_value);

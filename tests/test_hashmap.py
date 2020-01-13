@@ -475,28 +475,11 @@ def test_int2int_from_ptr(int2int_map):
     int2int_map[1] = 101
     int2int_map[2] = 102
 
-    int2int_map.make_readonly()
-
-    with pytest.raises(RuntimeError) as exc_info:
-        int2int_map[3] = 103
-    assert "Instance is read-only" in str(exc_info)
-
     addr = int2int_map.buffer_ptr
     int2int_new_map = Int2Int.from_ptr(addr)
 
     assert int2int_new_map[1] == 101
     assert int2int_new_map[2] == 102
-
-    with pytest.raises(RuntimeError) as exc_info:
-        int2int_new_map[3] = 103
-    assert "Instance is read-only" in str(exc_info)
-
-
-def test_int2int_from_ptr_fail_when_not_readonly(int2int_map):
-    with pytest.raises(RuntimeError) as exc_info:
-        addr = int2int_map.buffer_ptr
-        Int2Int.from_ptr(addr)
-    assert "Instance must be read-only" in str(exc_info)
 
 
 def test_int2int_iter_when_empty(int2int_map):
@@ -1245,28 +1228,11 @@ def test_int2float_from_ptr(int2float_map):
     int2float_map[1] = 101
     int2float_map[2] = 102
 
-    int2float_map.make_readonly()
-
-    with pytest.raises(RuntimeError) as exc_info:
-        int2float_map[3] = 103
-    assert "Instance is read-only" in str(exc_info)
-
     addr = int2float_map.buffer_ptr
     int2float_new_map = Int2Float.from_ptr(addr)
 
     assert int2float_new_map[1] == 101.0
     assert int2float_new_map[2] == 102.0
-
-    with pytest.raises(RuntimeError) as exc_info:
-        int2float_new_map[3] = 103
-    assert "Instance is read-only" in str(exc_info)
-
-
-def test_int2float_from_ptr_fail_when_not_readonly(int2float_map):
-    with pytest.raises(RuntimeError) as exc_info:
-        addr = int2float_map.buffer_ptr
-        Int2Float.from_ptr(addr)
-    assert "Instance must be read-only" in str(exc_info)
 
 
 def test_int2float_iter_when_empty(int2float_map):
