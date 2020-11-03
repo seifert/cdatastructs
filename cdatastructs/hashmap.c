@@ -38,7 +38,8 @@ int int2int_set(Int2IntHashTable_t * ctx,
         const unsigned long long key, const size_t value,
         Int2IntHashTable_t ** new_ctx) {
 
-    Int2IntItem_t *table = (void*) ctx + sizeof(Int2IntHashTable_t);
+    Int2IntItem_t *table = (Int2IntItem_t*) (
+            (char*) ctx + sizeof(Int2IntHashTable_t));
     Int2IntHashTable_t *new_hashmap;
     Int2IntItem_t item;
     size_t idx;
@@ -66,7 +67,7 @@ int int2int_set(Int2IntHashTable_t * ctx,
 
             free(ctx);
             ctx = new_hashmap;
-            table = (void*) ctx + sizeof(Int2IntHashTable_t);
+            table = (Int2IntItem_t*) ((char*) ctx + sizeof(Int2IntHashTable_t));
         }
         *new_ctx = ctx;
     }
@@ -92,7 +93,8 @@ int int2int_set(Int2IntHashTable_t * ctx,
 int int2int_del(Int2IntHashTable_t * const ctx,
         const unsigned long long key) {
 
-    Int2IntItem_t *table = (void*) ctx + sizeof(Int2IntHashTable_t);
+    Int2IntItem_t *table = (Int2IntItem_t*) (
+            (char*) ctx + sizeof(Int2IntHashTable_t));
     size_t idx = u_long_long_hash(key, ctx->table_size);
 
     for (size_t i=0; i<ctx->table_size; ++i) {
@@ -124,7 +126,8 @@ int int2int_get(const Int2IntHashTable_t * const ctx,
 int int2int_ptr(const Int2IntHashTable_t * const ctx,
         const unsigned long long key, size_t ** const value) {
 
-    Int2IntItem_t *table = (void*) ctx + sizeof(Int2IntHashTable_t);
+    Int2IntItem_t *table = (Int2IntItem_t*) (
+            (char*) ctx + sizeof(Int2IntHashTable_t));
     size_t idx = u_long_long_hash(key, ctx->table_size);
 
     for (size_t i=0; i<ctx->table_size; ++i) {
@@ -176,7 +179,8 @@ int int2float_set(Int2FloatHashTable_t * ctx,
         const unsigned long long key, const double value,
         Int2FloatHashTable_t ** new_ctx) {
 
-    Int2FloatItem_t *table = (void*) ctx + sizeof(Int2FloatHashTable_t);
+    Int2FloatItem_t *table = (Int2FloatItem_t*) (
+            (char*) ctx + sizeof(Int2FloatHashTable_t));
     Int2FloatHashTable_t *new_hashmap;
     Int2FloatItem_t item;
     size_t idx;
@@ -205,7 +209,8 @@ int int2float_set(Int2FloatHashTable_t * ctx,
 
             free(ctx);
             ctx = new_hashmap;
-            table = (void*) ctx + sizeof(Int2FloatHashTable_t);
+            table = (Int2FloatItem_t*) (
+                    (char*) ctx + sizeof(Int2FloatHashTable_t));
         }
         *new_ctx = ctx;
     }
@@ -231,7 +236,8 @@ int int2float_set(Int2FloatHashTable_t * ctx,
 int int2float_del(Int2FloatHashTable_t * const ctx,
         const unsigned long long key) {
 
-    Int2FloatItem_t *table = (void*) ctx + sizeof(Int2FloatHashTable_t);
+    Int2FloatItem_t *table = (Int2FloatItem_t*) (
+            (char*) ctx + sizeof(Int2FloatHashTable_t));
     size_t idx = u_long_long_hash(key, ctx->table_size);
 
     for (size_t i=0; i<ctx->table_size; ++i) {
@@ -263,7 +269,8 @@ int int2float_get(const Int2FloatHashTable_t * const ctx,
 int int2float_ptr(const Int2FloatHashTable_t * const ctx,
         const unsigned long long key, double ** const value) {
 
-    Int2FloatItem_t *table = (void*) ctx + sizeof(Int2FloatHashTable_t);
+    Int2FloatItem_t *table = (Int2FloatItem_t*) (
+            (char*) ctx + sizeof(Int2FloatHashTable_t));
     size_t idx = u_long_long_hash(key, ctx->table_size);
 
     for (size_t i=0; i<ctx->table_size; ++i) {

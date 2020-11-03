@@ -11,7 +11,7 @@ typedef enum {
     DELETED
 } ItemStatus_e;
 
-#define NEW_TABLE_SIZE(ncount) (((ncount) * 1.2) + 1)
+#define NEW_TABLE_SIZE(ncount) ((size_t) ((ncount) * 1.2) + 1)
 
 /*
  * int2int

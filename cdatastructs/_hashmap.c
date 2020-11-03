@@ -136,7 +136,8 @@ static PyObject* Int2Int_new(PyTypeObject *cls,
     /* Initialize object attributes */
     self->release_memory = true;
     self->default_value = default_value;
-    self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
+    self->table = (Int2IntItem_t*) (
+            (char*) self->hashmap + sizeof(Int2IntHashTable_t));
 
     if ((NULL != initializer) &&
             (Int2Int_update_from_initializer(self, initializer) != 0)) {
@@ -347,7 +348,8 @@ static int Int2Int_setitem(Int2Int_t *self, PyObject *key, PyObject *value) {
         }
         if (new_hashmap != self->hashmap) {
             self->hashmap = new_hashmap;
-            self->table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
+            self->table = (Int2IntItem_t*) (
+                    (char*) new_hashmap + sizeof(Int2IntHashTable_t));
         }
     }
 
@@ -380,7 +382,8 @@ static PyObject* Int2Int_getitem(Int2Int_t *self, PyObject *key) {
             }
             if (new_hashmap != self->hashmap) {
                 self->hashmap = new_hashmap;
-                self->table = (void*) new_hashmap + sizeof(Int2IntHashTable_t);
+                self->table = (Int2IntItem_t*) (
+                        (char*) new_hashmap + sizeof(Int2IntHashTable_t));
             }
             Py_INCREF(self->default_value);
             return self->default_value;
@@ -780,7 +783,8 @@ static PyObject* Int2Int_from_raw_data(PyTypeObject *cls, PyObject *args) {
     self->hashmap->current_size = current_size;
     self->hashmap->table_size = table_size;
     self->hashmap->readonly = readonly;
-    self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
+    self->table = (Int2IntItem_t*) (
+            (char*) self->hashmap + sizeof(Int2IntHashTable_t));
     memcpy((void *) self->table, buffer.buf, buffer.len);
 
     Py_INCREF(self->default_value);
@@ -816,7 +820,8 @@ static PyObject* Int2Int_from_ptr(PyTypeObject *cls, PyObject *args) {
     self->default_value = Py_None;
     self->release_memory = false;
     self->hashmap = (Int2IntHashTable_t*) addr;
-    self->table = (void*) self->hashmap + sizeof(Int2IntHashTable_t);
+    self->table = (Int2IntItem_t*) (
+            (char*) self->hashmap + sizeof(Int2IntHashTable_t));
 
     Py_INCREF(self->default_value);
     return (PyObject*) self;
@@ -1126,7 +1131,8 @@ static PyObject* Int2Float_new(PyTypeObject *cls,
     /* Initialize object attributes */
     self->release_memory = true;
     self->default_value = default_value;
-    self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
+    self->table = (Int2FloatItem_t*) (
+            (char*) self->hashmap + sizeof(Int2FloatHashTable_t));
 
     if ((NULL != initializer) &&
             (Int2Float_update_from_initializer(self, initializer) != 0)) {
@@ -1345,7 +1351,8 @@ static int Int2Float_setitem(Int2Float_t *self,
         }
         if (new_hashmap != self->hashmap) {
             self->hashmap = new_hashmap;
-            self->table = (void*) new_hashmap + sizeof(Int2FloatHashTable_t);
+            self->table = (Int2FloatItem_t*) (
+                    (char*) new_hashmap + sizeof(Int2FloatHashTable_t));
         }
     }
 
@@ -1378,8 +1385,8 @@ static PyObject* Int2Float_getitem(Int2Float_t *self, PyObject *key) {
             }
             if (new_hashmap != self->hashmap) {
                 self->hashmap = new_hashmap;
-                self->table = (void*) new_hashmap
-                        + sizeof(Int2FloatHashTable_t);
+                self->table = (Int2FloatItem_t*) (
+                        (char*) new_hashmap + sizeof(Int2FloatHashTable_t));
             }
             Py_INCREF(self->default_value);
             return self->default_value;
@@ -1792,7 +1799,8 @@ static PyObject* Int2Float_from_raw_data(PyTypeObject *cls, PyObject *args) {
     self->hashmap->current_size = current_size;
     self->hashmap->table_size = table_size;
     self->hashmap->readonly = readonly;
-    self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
+    self->table = (Int2FloatItem_t*) (
+            (char*) self->hashmap + sizeof(Int2FloatHashTable_t));
     memcpy((void *) self->table, buffer.buf, buffer.len);
 
     Py_INCREF(self->default_value);
@@ -1828,7 +1836,8 @@ static PyObject* Int2Float_from_ptr(PyTypeObject *cls, PyObject *args) {
     self->default_value = Py_None;
     self->release_memory = false;
     self->hashmap = (Int2FloatHashTable_t*) addr;
-    self->table = (void*) self->hashmap + sizeof(Int2FloatHashTable_t);
+    self->table = (Int2FloatItem_t*) (
+            (char*) self->hashmap + sizeof(Int2FloatHashTable_t));
 
     Py_INCREF(self->default_value);
     return (PyObject*) self;
