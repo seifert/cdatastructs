@@ -114,7 +114,7 @@ def test_int2int_bool_when_not_empty(int2int_map):
 
 def test_int2int_repr_when_empty(int2int_map):
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 0\>',
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-fA-F]+, used 0\>',
         repr(int2int_map))
     assert m is not None
 
@@ -122,7 +122,7 @@ def test_int2int_repr_when_empty(int2int_map):
 def test_int2int_repr_when_not_empty(int2int_map):
     int2int_map[1] = 100
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, used 1\>',
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-fA-F]+, used 1\>',
         repr(int2int_map))
     assert m is not None
 
@@ -130,7 +130,7 @@ def test_int2int_repr_when_not_empty(int2int_map):
 def test_int2int_repr_when_empty_and_default_kwarg():
     int2int_map = Int2Int(default=100)
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-fA-F]+, '
         r'used 0, default 100\>',
         repr(int2int_map))
     assert m is not None
@@ -140,7 +140,7 @@ def test_int2int_repr_when_not_empty_and_default_kwarg():
     int2int_map = Int2Int(default=100)
     int2int_map[1] = 100
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-fA-F]+, '
         r'used 1, default 100\>',
         repr(int2int_map))
     assert m is not None
@@ -150,7 +150,7 @@ def test_int2int_repr_when_readonly(int2int_map):
     int2int_map[1] = 100
     int2int_map.make_readonly()
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Int: object at 0x[0-9a-fA-F]+, '
         r'used 1, read-only\>',
         repr(int2int_map))
     assert m is not None
@@ -890,7 +890,8 @@ def test_int2float_bool_when_not_empty(int2float_map):
 
 def test_int2float_repr_when_empty(int2float_map):
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, used 0\>',
+        r'\<cdatastructs.hashmap.Int2Float: '
+        r'object at 0x[0-9a-fA-F]+, used 0\>',
         repr(int2float_map))
     assert m is not None
 
@@ -898,7 +899,8 @@ def test_int2float_repr_when_empty(int2float_map):
 def test_int2float_repr_when_not_empty(int2float_map):
     int2float_map[1] = 100
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, used 1\>',
+        r'\<cdatastructs.hashmap.Int2Float: '
+        r'object at 0x[0-9a-fA-F]+, used 1\>',
         repr(int2float_map))
     assert m is not None
 
@@ -906,7 +908,7 @@ def test_int2float_repr_when_not_empty(int2float_map):
 def test_int2float_repr_when_empty_and_default_kwarg():
     int2float_map = Int2Float(default=100)
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-fA-F]+, '
         r'used 0, default 100.0\>',
         repr(int2float_map))
     assert m is not None
@@ -916,7 +918,7 @@ def test_int2float_repr_when_not_empty_and_default_kwarg():
     int2float_map = Int2Float(default=100)
     int2float_map[1] = 100
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-fA-F]+, '
         r'used 1, default 100.0\>',
         repr(int2float_map))
     assert m is not None
@@ -926,7 +928,7 @@ def test_int2float_repr_when_readonly(int2float_map):
     int2float_map[1] = 100
     int2float_map.make_readonly()
     m = re.match(
-        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-f]+, '
+        r'\<cdatastructs.hashmap.Int2Float: object at 0x[0-9a-fA-F]+, '
         r'used 1, read-only\>',
         repr(int2float_map))
     assert m is not None
