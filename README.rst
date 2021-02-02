@@ -18,11 +18,11 @@ Python code:
 
     >>> from my_c_extension import calculate_data
 
-	# Create instance of the Int2Int, it will be mapping from ID
-	# to position in array
+    # Create instance of the Int2Int - mapping from ID
+    # to position in array
     >>> id2index = Int2Int()
 
-    # Instance of the id2index is mapping, so you can use it same as dict
+    # Fill id2index, it is mapping, so you can use it same as dict
     >>> id2index[72351277] = 0
     >>> id2index[98092127498] = 1
     >>> id2index[126987499] = 2
@@ -44,7 +44,7 @@ Python code:
     >>> ids = array.array('Q', [98092127498, 126987499, 36])
     >>> calculate_data(id2index, ids, a, b, results)
 
-	# Obtaint results
+    # Obtain result
     >>> results[id2index[72351277]]
     nan
     >>> results[id2index[98092127498]]
